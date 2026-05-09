@@ -100,9 +100,9 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
                 if (finalVal === "Sedikit Kesulitan" || finalVal === "Ringan") {
                   finalVal = "Ringan";
                 } 
-                // Mapping Sedang & Upgrade ke Berat jika Akumulatif (Minimal 70% / 7 Indikator)
+                // Mapping Sedang & Upgrade ke Berat jika Akumulatif (Minimal 60% / 6 Indikator)
                 else if (finalVal === "Banyak Kesulitan" || finalVal === "Sedang") {
-                  finalVal = banyakKesulitanCount >= 7 ? "Berat" : "Sedang";
+                  finalVal = banyakKesulitanCount >= 6 ? "Berat" : "Sedang";
                 } 
                 // Mapping Berat Langsung
                 else if (finalVal === "Tidak Bisa Sama Sekali" || finalVal === "Berat") {
