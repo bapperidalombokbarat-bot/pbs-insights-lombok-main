@@ -53,7 +53,16 @@ function AlatBantuPage() {
         WHERE h.tingkat_hambatan IN ('Sedang','Berat')
         GROUP BY s.satuan_pendidikan ORDER BY n DESC LIMIT 1
       `))[0];
-      return { perHambatan, alat, prioritas, totalAlat, topSekolah };
+      
+      // Query Presisi: Menghitung berapa banyak siswa unik yang membutuhkan tiap kategori alat
+      const kebutuhanKategori = await query<any>(`
+        SELECT a.kategori, COUNT(DISTINCT h.siswa_id) AS total_siswa
+        FROM hambatan_siswa h
+        JOIN alat_bantu a ON h.jenis_hambatan = a.jenis_hambatan
+        GROUP BY a.kategori
+      `);
+
+      return { perHambatan, alat, prioritas, totalAlat, topSekolah, kebutuhanKategori };
     },
   });
 
@@ -68,10 +77,11 @@ function AlatBantuPage() {
 
   const kategoriMap: Record<string, { count: number; siswa: number }> = {};
   data.alat.forEach((a: any) => {
-    const total = data.perHambatan.find((p: any) => p.jenis_hambatan === a.jenis_hambatan)?.total || 0;
-    if (!kategoriMap[a.kategori]) kategoriMap[a.kategori] = { count: 0, siswa: 0 };
+    if (!kategoriMap[a.kategori]) {
+      const totalSiswa = data.kebutuhanKategori.find((k: any) => k.kategori === a.kategori)?.total_siswa || 0;
+      kategoriMap[a.kategori] = { count: 0, siswa: totalSiswa };
+    }
     kategoriMap[a.kategori].count += 1;
-    kategoriMap[a.kategori].siswa += total;
   });
 
   return (
