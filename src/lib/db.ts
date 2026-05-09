@@ -2,17 +2,61 @@ import initSqlJs, { type Database } from "sql.js";
 
 let dbPromise: Promise<Database> | null = null;
 
+const DB_STORE_NAME = "pbs_db_store";
+const DB_KEY = "pbs_binary";
+
+async function getStoredDb(): Promise<Uint8Array | null> {
+  return new Promise((resolve) => {
+    const request = indexedDB.open("PBS_Database", 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(DB_STORE_NAME);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction(DB_STORE_NAME, "readonly");
+      const store = tx.objectStore(DB_STORE_NAME);
+      const getReq = store.get(DB_KEY);
+      getReq.onsuccess = () => resolve(getReq.result || null);
+      getReq.onerror = () => resolve(null);
+    };
+    request.onerror = () => resolve(null);
+  });
+}
+
+export async function saveDb() {
+  const db = await getDb();
+  const binary = db.export();
+  return new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open("PBS_Database", 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(DB_STORE_NAME);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction(DB_STORE_NAME, "readwrite");
+      const store = tx.objectStore(DB_STORE_NAME);
+      store.put(binary, DB_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    };
+  });
+}
+
 export function getDb(): Promise<Database> {
   if (!dbPromise) {
     dbPromise = (async () => {
       const SQL = await initSqlJs({ locateFile: () => "/sql-wasm.wasm" });
       try {
+        // Cek penyimpanan lokal dulu
+        const localBuf = await getStoredDb();
+        if (localBuf) {
+          console.log("Memuat database dari penyimpanan lokal...");
+          return new SQL.Database(localBuf);
+        }
+
+        // Jika tidak ada, ambil dari file publik
         const res = await fetch("/data/pbs.db");
         if (!res.ok) throw new Error("Gagal memuat file pbs.db");
         const buf = await res.arrayBuffer();
         return new SQL.Database(new Uint8Array(buf));
       } catch (err) {
-        console.warn("Menggunakan database kosong baru...");
+        console.warn("Menggunakan database kosong baru...", err);
         return new SQL.Database();
       }
     })();

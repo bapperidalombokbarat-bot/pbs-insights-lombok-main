@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as XLSX from "xlsx/xlsx.mjs";
-import { getDb, HAMBATAN_COLS } from "@/lib/db";
+import { getDb, HAMBATAN_COLS, saveDb } from "@/lib/db";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   Dialog, 
@@ -176,6 +176,7 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
             throw new Error("Format file tidak dikenali sebagai Rekapitulasi PBS maupun Rapor Pendidikan.");
           }
 
+          await saveDb(); // Simpan ke IndexedDB
           await queryClient.invalidateQueries();
           setStatus("success");
           
