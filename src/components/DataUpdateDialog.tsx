@@ -96,10 +96,19 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
 
               difficulties.forEach(h => {
                 let finalVal = h.val;
-                if (finalVal === "Sedikit Kesulitan") finalVal = "Ringan";
-                else if (finalVal === "Banyak Kesulitan") {
+                // Mapping Ringan
+                if (finalVal === "Sedikit Kesulitan" || finalVal === "Ringan") {
+                  finalVal = "Ringan";
+                } 
+                // Mapping Sedang & Upgrade ke Berat jika Akumulatif
+                else if (finalVal === "Banyak Kesulitan" || finalVal === "Sedang") {
                   finalVal = banyakKesulitanCount >= 3 ? "Berat" : "Sedang";
-                } else if (finalVal === "Tidak Bisa Sama Sekali") finalVal = "Berat";
+                } 
+                // Mapping Berat Langsung
+                else if (finalVal === "Tidak Bisa Sama Sekali" || finalVal === "Berat") {
+                  finalVal = "Berat";
+                }
+                
                 insertHambatan.run([id, h.col, finalVal]);
               });
               countSiswa++;
