@@ -6,6 +6,7 @@ import { DataUpdateDialog } from "./DataUpdateDialog";
 
 const NAV = [
   { to: "/", label: "Dashboard Utama", icon: <BarChart3 className="w-5 h-5" /> },
+  { to: "/spm", label: "Capaian SPM", icon: <Activity className="w-5 h-5" /> },
   { to: "/kecamatan", label: "Peta Kecamatan", icon: <Map className="w-5 h-5" /> },
   { to: "/hambatan", label: "Analisa Hambatan", icon: <Activity className="w-5 h-5" /> },
   { to: "/alat-bantu", label: "Kebutuhan Alat", icon: <Footprints className="w-5 h-5" /> },

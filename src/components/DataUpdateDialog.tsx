@@ -47,63 +47,64 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
             throw new Error("File excel kosong atau tidak valid.");
           }
 
-          setProgress(`Menyiapkan ${rows.length} data untuk Turso...`);
+          setProgress(`Memproses ${rows.length} data siswa...`);
           
-          const statements: any[] = [];
+          const db = await getDb();
           
-          // 1. Bersihkan data lama (opsional)
-          statements.push({ sql: "DELETE FROM hambatan_siswa", args: [] });
-          statements.push({ sql: "DELETE FROM siswa", args: [] });
+          // 1. Bersihkan data lama
+          db.run("DELETE FROM hambatan_siswa");
+          db.run("DELETE FROM siswa");
+
+          // 2. Siapkan statement
+          const insertSiswa = db.prepare(`
+            INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+
+          const insertHambatan = db.prepare(`
+            INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
+            VALUES (?, ?, ?)
+          `);
 
           let count = 0;
           for (const row of rows) {
             const id = count + 1;
-            const nama = row["Nama Peserta Didik"] || row["Nama"] || row["nama_siswa"];
-            const nisn = row["NISN"] || "";
-            const sekolah = row["Satuan Pendidikan"] || row["Sekolah"] || "";
-            const kecamatan = row["Kecamatan"] || "";
-            const jenjang = row["Jenjang"] || "";
-            const kelas = row["Kelas"] || row["Tingkat Kelas"] || "";
-            const jk = row["Jenis Kelamin"] || "";
+            const nama = row["Nama Peserta Didik"] || row["Nama"] || row["nama_siswa"] || row["Nama Siswa"];
+            const nisn = row["NISN"] || row["nisn"] || "";
+            const sekolah = row["Satuan Pendidikan"] || row["Sekolah"] || row["satuan_pendidikan"] || "";
+            const kecamatan = row["Kecamatan"] || row["kecamatan"] || "";
+            const jenjang = row["Jenjang"] || row["jenjang"] || "";
+            const kelas = row["Kelas"] || row["Tingkat Kelas"] || row["tingkat_kelas"] || "";
+            const jk = row["Jenis Kelamin"] || row["jenis_kelamin"] || "";
 
             if (!nama) continue;
 
-            statements.push({
-              sql: `INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              args: [id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]
-            });
+            insertSiswa.run([id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]);
 
             // Cek hambatan
             HAMBATAN_COLS.forEach(col => {
               const val = row[col];
-              if (val && val !== "Tidak ada" && val !== "-") {
-                statements.push({
-                  sql: `INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
-                        VALUES (?, ?, ?)`,
-                  args: [id, col, val]
-                });
+              if (val && val !== "Tidak ada" && val !== "-" && val !== "Tidak Ada Kesulitan" && val !== "Tidak ada kesulitan") {
+                insertHambatan.run([id, col, val]);
               }
             });
 
             count++;
+            if (count % 100 === 0) {
+              setProgress(`Menyimpan data lokal... (${count}/${rows.length})`);
+            }
           }
 
-          setProgress(`Mengirim ${statements.length} perintah ke cloud Turso...`);
+          insertSiswa.free();
+          insertHambatan.free();
+
+          // Catatan: Di sql.js (browser), perubahan ini hanya ada di memori.
+          // Jika ingin permanen di lokal saat dev, Anda harus mendownload file DB-nya.
           
-          const { executeBatch } = await import("@/lib/db");
-          const chunkSize = 500;
-          for (let i = 0; i < statements.length; i += chunkSize) {
-            const chunk = statements.slice(i, i + chunkSize);
-            setProgress(`Sync cloud... (${i}/${statements.length})`);
-            await executeBatch(chunk);
-          }
-          
-          // Force refresh queries
           await queryClient.invalidateQueries();
           
           setStatus("success");
-          toast.success(`Berhasil sinkronisasi ${count} data ke Turso.`);
+          toast.success(`Berhasil mengupdate ${count} data siswa (Lokal).`);
         } catch (err: any) {
           console.error(err);
           setStatus("error");
@@ -124,9 +125,9 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Update Data PBS</DialogTitle>
+          <DialogTitle>Update Data PBS (Lokal)</DialogTitle>
           <DialogDescription>
-            Suntik data terbaru menggunakan file Rekapitulasi Pengisian PBS (Excel).
+            Upload file Excel untuk memproses data di memori browser.
           </DialogDescription>
         </DialogHeader>
 
@@ -135,7 +136,7 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
             <>
               <FileUp className="w-12 h-12 text-muted-foreground mb-4" />
               <p className="text-sm text-muted-foreground mb-4 text-center px-6">
-                Klik tombol di bawah untuk memilih file Excel rekapitulasi.
+                Pilih file Excel rekapitulasi PBS.
               </p>
               <input 
                 type="file" 
@@ -145,7 +146,7 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
                 onChange={handleFileUpload}
               />
               <Button asChild>
-                <label htmlFor="excel-upload" className="cursor-pointer">Pilih File Excel</label>
+                <label htmlFor="excel-upload" className="cursor-pointer">Pilih File</label>
               </Button>
             </>
           )}
@@ -160,8 +161,8 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
           {status === "success" && (
             <div className="flex flex-col items-center text-center px-6">
               <CheckCircle2 className="w-12 h-12 text-green-500 mb-4" />
-              <p className="text-sm font-bold text-green-600 mb-1">Update Selesai!</p>
-              <p className="text-xs text-muted-foreground mb-4">Data dashboard telah diperbarui sesuai file yang Anda unggah.</p>
+              <p className="text-sm font-bold text-green-600 mb-1">Berhasil!</p>
+              <p className="text-xs text-muted-foreground mb-4">Data di browser telah diperbarui.</p>
               <Button onClick={() => onOpenChange(false)}>Tutup</Button>
             </div>
           )}
@@ -169,18 +170,12 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
           {status === "error" && (
             <div className="flex flex-col items-center text-center px-6">
               <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-              <p className="text-sm font-bold text-destructive mb-1">Gagal Update</p>
-              <p className="text-xs text-muted-foreground mb-4">Terjadi kesalahan saat memproses file. Pastikan format kolom sesuai.</p>
+              <p className="text-sm font-bold text-destructive mb-1">Error</p>
+              <p className="text-xs text-muted-foreground mb-4">Pastikan format file sesuai.</p>
               <Button variant="outline" onClick={() => setStatus("idle")}>Coba Lagi</Button>
             </div>
           )}
         </div>
-
-        <DialogFooter className="sm:justify-start">
-          <p className="text-[10px] text-muted-foreground text-center w-full">
-            * Perhatian: Melakukan update akan mengganti data siswa yang ada saat ini di memori browser.
-          </p>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

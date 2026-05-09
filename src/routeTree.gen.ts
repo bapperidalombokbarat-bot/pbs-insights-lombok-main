@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SpmRouteImport } from './routes/spm'
 import { Route as SiswaRouteImport } from './routes/siswa'
 import { Route as KecamatanRouteImport } from './routes/kecamatan'
 import { Route as HambatanRouteImport } from './routes/hambatan'
 import { Route as AlatBantuRouteImport } from './routes/alat-bantu'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SpmRoute = SpmRouteImport.update({
+  id: '/spm',
+  path: '/spm',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SiswaRoute = SiswaRouteImport.update({
   id: '/siswa',
   path: '/siswa',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/hambatan': typeof HambatanRoute
   '/kecamatan': typeof KecamatanRoute
   '/siswa': typeof SiswaRoute
+  '/spm': typeof SpmRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/hambatan': typeof HambatanRoute
   '/kecamatan': typeof KecamatanRoute
   '/siswa': typeof SiswaRoute
+  '/spm': typeof SpmRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,27 @@ export interface FileRoutesById {
   '/hambatan': typeof HambatanRoute
   '/kecamatan': typeof KecamatanRoute
   '/siswa': typeof SiswaRoute
+  '/spm': typeof SpmRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/alat-bantu' | '/hambatan' | '/kecamatan' | '/siswa'
+  fullPaths:
+    | '/'
+    | '/alat-bantu'
+    | '/hambatan'
+    | '/kecamatan'
+    | '/siswa'
+    | '/spm'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/alat-bantu' | '/hambatan' | '/kecamatan' | '/siswa'
-  id: '__root__' | '/' | '/alat-bantu' | '/hambatan' | '/kecamatan' | '/siswa'
+  to: '/' | '/alat-bantu' | '/hambatan' | '/kecamatan' | '/siswa' | '/spm'
+  id:
+    | '__root__'
+    | '/'
+    | '/alat-bantu'
+    | '/hambatan'
+    | '/kecamatan'
+    | '/siswa'
+    | '/spm'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,10 +99,18 @@ export interface RootRouteChildren {
   HambatanRoute: typeof HambatanRoute
   KecamatanRoute: typeof KecamatanRoute
   SiswaRoute: typeof SiswaRoute
+  SpmRoute: typeof SpmRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/spm': {
+      id: '/spm'
+      path: '/spm'
+      fullPath: '/spm'
+      preLoaderRoute: typeof SpmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/siswa': {
       id: '/siswa'
       path: '/siswa'
@@ -125,6 +155,7 @@ const rootRouteChildren: RootRouteChildren = {
   HambatanRoute: HambatanRoute,
   KecamatanRoute: KecamatanRoute,
   SiswaRoute: SiswaRoute,
+  SpmRoute: SpmRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
