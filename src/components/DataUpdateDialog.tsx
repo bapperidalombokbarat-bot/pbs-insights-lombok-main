@@ -83,8 +83,13 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
 
             // Cek hambatan
             HAMBATAN_COLS.forEach(col => {
-              const val = row[col];
+              let val = row[col];
               if (val && val !== "Tidak ada" && val !== "-" && val !== "Tidak Ada Kesulitan" && val !== "Tidak ada kesulitan") {
+                // Map values to standard levels
+                if (val === "Sedikit Kesulitan") val = "Ringan";
+                else if (val === "Banyak Kesulitan") val = "Sedang";
+                else if (val === "Tidak Bisa Sama Sekali") val = "Berat";
+                
                 insertHambatan.run([id, col, val]);
               }
             });
