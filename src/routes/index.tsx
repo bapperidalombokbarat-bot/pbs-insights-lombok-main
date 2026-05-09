@@ -30,15 +30,15 @@ function DashboardPage() {
           (SELECT COUNT(*) FROM siswa) AS total_siswa,
           (SELECT COUNT(DISTINCT satuan_pendidikan) FROM siswa) AS total_sekolah,
           (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa) AS total_berkebutuhan,
-          (SELECT COUNT(*) FROM hambatan_siswa WHERE tingkat_hambatan='Ringan') AS ringan,
-          (SELECT COUNT(*) FROM hambatan_siswa WHERE tingkat_hambatan='Sedang') AS sedang,
-          (SELECT COUNT(*) FROM hambatan_siswa WHERE tingkat_hambatan='Berat') AS berat
+          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Ringan') AS ringan,
+          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Sedang') AS sedang,
+          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Berat') AS berat
       `);
       const perKec = await query<any>(
         `SELECT kecamatan, COUNT(*) AS total FROM siswa GROUP BY kecamatan ORDER BY total DESC`
       );
       const perJenis = await query<any>(
-        `SELECT jenis_hambatan, COUNT(*) AS total FROM hambatan_siswa GROUP BY jenis_hambatan ORDER BY total DESC`
+        `SELECT jenis_hambatan, COUNT(DISTINCT siswa_id) AS total FROM hambatan_siswa GROUP BY jenis_hambatan ORDER BY total DESC`
       );
       const perJenjang = await query<any>(
         `SELECT jenjang, COUNT(*) AS total FROM siswa GROUP BY jenjang`
