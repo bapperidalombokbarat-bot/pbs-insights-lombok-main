@@ -1,0 +1,145 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.005 250);
+  --foreground: oklch(0.18 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 260);
+  --primary: oklch(0.5 0.18 260);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.55 0.22 295);
+  --secondary-foreground: oklch(1 0 0);
+  --success: oklch(0.62 0.15 160);
+  --warning: oklch(0.7 0.18 45);
+  --danger: oklch(0.58 0.22 25);
+  --muted: oklch(0.96 0.005 250);
+  --muted-foreground: oklch(0.5 0.02 260);
+  --accent: oklch(0.95 0.02 260);
+  --accent-foreground: oklch(0.25 0.05 260);
+  --border: oklch(0.92 0.01 260);
+  --input: oklch(0.92 0.01 260);
+  --ring: oklch(0.5 0.18 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 260);
+  --destructive: oklch(0.58 0.22 25);
+  --destructive-foreground: oklch(1 0 0);
+  --sidebar: oklch(0.32 0.08 260);
+  --sidebar-foreground: oklch(1 0 0);
+  --chart-grid: oklch(0.9 0.02 260);
+  --chart-text: oklch(0.4 0.02 260);
+}
+
+.dark {
+  --background: oklch(0.15 0.02 260);
+  --foreground: oklch(0.95 0.01 260);
+  --card: oklch(0.18 0.03 260);
+  --card-foreground: oklch(0.95 0.01 260);
+  --primary: oklch(0.6 0.15 260);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.65 0.2 295);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.22 0.04 260);
+  --muted-foreground: oklch(0.7 0.02 260);
+  --accent: oklch(0.25 0.05 260);
+  --accent-foreground: oklch(0.95 0.01 260);
+  --border: oklch(0.25 0.04 260);
+  --input: oklch(0.25 0.04 260);
+  --ring: oklch(0.6 0.15 260);
+  --popover: oklch(0.18 0.03 260);
+  --popover-foreground: oklch(0.95 0.01 260);
+  --chart-grid: oklch(0.3 0.05 260);
+  --chart-text: oklch(0.8 0.02 260);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body { font-family: "Inter", system-ui, sans-serif; }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+@layer components {
+  .info-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    border-left: 4px solid var(--accent-color, oklch(0.5 0.18 260));
+    transition: transform .2s, box-shadow .2s;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .info-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.10); }
+  .info-card .value { font-size: 2rem; font-weight: 700; line-height: 1.1; color: var(--foreground); }
+  .info-card .label { font-size: 0.85rem; color: var(--muted-foreground); margin-top: 0.25rem; font-weight: 500; }
+  .info-card .sub { font-size: 0.75rem; color: var(--muted-foreground); margin-top: 0.35rem; opacity: 0.8; }
+  .info-card .icon-box {
+    width: 48px; height: 48px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; background: var(--icon-bg, oklch(0.95 0.05 260));
+  }
+
+  .chart-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    height: 100%;
+  }
+  .chart-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--foreground); }
+
+  .badge-pill {
+    display: inline-block; padding: 0.2rem 0.7rem; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 700; line-height: 1.4;
+    border: 1px solid transparent;
+  }
+  .badge-ringan { 
+    background: color-mix(in oklch, var(--color-success), transparent 85%); 
+    color: var(--color-success);
+    border-color: color-mix(in oklch, var(--color-success), transparent 70%);
+  }
+  .badge-sedang { 
+    background: color-mix(in oklch, var(--color-warning), transparent 85%); 
+    color: var(--color-warning);
+    border-color: color-mix(in oklch, var(--color-warning), transparent 70%);
+  }
+  .badge-berat  { 
+    background: color-mix(in oklch, var(--color-danger), transparent 85%); 
+    color: var(--color-danger);
+    border-color: color-mix(in oklch, var(--color-danger), transparent 70%);
+  }
+}
