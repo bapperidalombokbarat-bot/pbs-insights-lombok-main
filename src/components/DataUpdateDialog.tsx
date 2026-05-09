@@ -81,17 +81,25 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
 
             insertSiswa.run([id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]);
 
-            // Cek hambatan
+            const studentDifficulties: { col: string, val: string }[] = [];
+            let banyakKesulitanCount = 0;
+
             HAMBATAN_COLS.forEach(col => {
               let val = row[col];
               if (val && val !== "Tidak ada" && val !== "-" && val !== "Tidak Ada Kesulitan" && val !== "Tidak ada kesulitan") {
-                // Map values to standard levels
-                if (val === "Sedikit Kesulitan") val = "Ringan";
-                else if (val === "Banyak Kesulitan") val = "Sedang";
-                else if (val === "Tidak Bisa Sama Sekali") val = "Berat";
-                
-                insertHambatan.run([id, col, val]);
+                if (val === "Banyak Kesulitan") banyakKesulitanCount++;
+                studentDifficulties.push({ col, val });
               }
+            });
+
+            studentDifficulties.forEach(h => {
+              let finalVal = h.val;
+              if (finalVal === "Sedikit Kesulitan") finalVal = "Ringan";
+              else if (finalVal === "Banyak Kesulitan") {
+                finalVal = banyakKesulitanCount >= 3 ? "Berat" : "Sedang";
+              } else if (finalVal === "Tidak Bisa Sama Sekali") finalVal = "Berat";
+
+              insertHambatan.run([id, h.col, finalVal]);
             });
 
             count++;
