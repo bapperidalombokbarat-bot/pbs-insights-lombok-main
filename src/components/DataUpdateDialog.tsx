@@ -39,77 +39,143 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
         try {
           const data = evt.target?.result;
           const workbook = XLSX.read(data, { type: "binary" });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          const rows = XLSX.utils.sheet_to_json(sheet) as any[];
-
-          if (rows.length === 0) {
-            throw new Error("File excel kosong atau tidak valid.");
-          }
-
-          setProgress(`Memproses ${rows.length} data siswa...`);
-          
           const db = await getDb();
-          
-          // 1. Bersihkan data lama
-          db.run("DELETE FROM hambatan_siswa");
-          db.run("DELETE FROM siswa");
+          let countSiswa = 0;
+          let countRapor = 0;
 
-          // 2. Siapkan statement
-          const insertSiswa = db.prepare(`
-            INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `);
+          const parseVal = (v: any) => {
+            if (v === null || v === undefined || v === "") return 0;
+            if (typeof v === "number") return v;
+            return parseFloat(v.toString().replace(",", "."));
+          };
 
-          const insertHambatan = db.prepare(`
-            INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
-            VALUES (?, ?, ?)
-          `);
+          // 1. CEK DATA REKAPITULASI PBS
+          const pbsSheetName = workbook.SheetNames.find(n => n.includes("Rekapitulasi"));
+          if (pbsSheetName) {
+            setProgress("Memproses data Rekapitulasi PBS...");
+            const sheet = workbook.Sheets[pbsSheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet) as any[];
+            
+            db.run("DELETE FROM hambatan_siswa");
+            db.run("DELETE FROM siswa");
 
-          let count = 0;
-          for (const row of rows) {
-            const id = count + 1;
-            const nama = row["Nama Peserta Didik"] || row["Nama"] || row["nama_siswa"] || row["Nama Siswa"];
-            const nisn = row["NISN"] || row["nisn"] || "";
-            const sekolah = row["Satuan Pendidikan"] || row["Sekolah"] || row["satuan_pendidikan"] || "";
-            const kecamatan = row["Kecamatan"] || row["kecamatan"] || "";
-            const jenjang = row["Jenjang"] || row["jenjang"] || "";
-            const kelas = row["Kelas"] || row["Tingkat Kelas"] || row["tingkat_kelas"] || "";
-            const jk = row["Jenis Kelamin"] || row["jenis_kelamin"] || "";
+            const insertSiswa = db.prepare(`
+              INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `);
 
-            if (!nama) continue;
+            const insertHambatan = db.prepare(`
+              INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
+              VALUES (?, ?, ?)
+            `);
 
-            insertSiswa.run([id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]);
+            rows.forEach((row, idx) => {
+              const id = idx + 1;
+              const nama = row["Nama Peserta Didik"] || row["Nama Siswa"] || row["Nama"] || row["nama_siswa"];
+              if (!nama) return;
 
-            // Cek hambatan
-            HAMBATAN_COLS.forEach(col => {
-              let val = row[col];
-              if (val && val !== "Tidak ada" && val !== "-" && val !== "Tidak Ada Kesulitan" && val !== "Tidak ada kesulitan") {
-                // Map values to standard levels
-                if (val === "Sedikit Kesulitan") val = "Ringan";
-                else if (val === "Banyak Kesulitan") val = "Sedang";
-                else if (val === "Tidak Bisa Sama Sekali") val = "Berat";
-                
-                insertHambatan.run([id, col, val]);
-              }
+              const nisn = row["NISN"] || row["nisn"] || "";
+              const sekolah = row["Satuan Pendidikan"] || row["Sekolah"] || row["satuan_pendidikan"] || "";
+              const kecamatan = row["Kecamatan"] || row["kecamatan"] || "";
+              const jenjang = row["Jenjang"] || row["jenjang"] || "";
+              const kelas = row["Kelas"] || row["Tingkat Kelas"] || row["tingkat_kelas"] || "";
+              const jk = row["Jenis Kelamin"] || row["jenis_kelamin"] || "";
+
+              insertSiswa.run([id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]);
+
+              const difficulties: { col: string, val: string }[] = [];
+              let banyakKesulitanCount = 0;
+
+              HAMBATAN_COLS.forEach(col => {
+                let val = row[col];
+                if (val && val !== "Tidak ada" && val !== "-" && val !== "Tidak Ada Kesulitan" && val !== "Tidak ada kesulitan") {
+                  if (val === "Banyak Kesulitan") banyakKesulitanCount++;
+                  difficulties.push({ col, val });
+                }
+              });
+
+              difficulties.forEach(h => {
+                let finalVal = h.val;
+                if (finalVal === "Sedikit Kesulitan") finalVal = "Ringan";
+                else if (finalVal === "Banyak Kesulitan") {
+                  finalVal = banyakKesulitanCount >= 3 ? "Berat" : "Sedang";
+                } else if (finalVal === "Tidak Bisa Sama Sekali") finalVal = "Berat";
+                insertHambatan.run([id, h.col, finalVal]);
+              });
+              countSiswa++;
             });
-
-            count++;
-            if (count % 100 === 0) {
-              setProgress(`Menyimpan data lokal... (${count}/${rows.length})`);
-            }
+            insertSiswa.free();
+            insertHambatan.free();
           }
 
-          insertSiswa.free();
-          insertHambatan.free();
+          // 2. CEK DATA RAPOR PENDIDIKAN (SPM)
+          const dasmenSheet = workbook.SheetNames.find(n => n.includes("DASMEN"));
+          const paudSheet = workbook.SheetNames.find(n => n.includes("PAUD"));
 
-          // Catatan: Di sql.js (browser), perubahan ini hanya ada di memori.
-          // Jika ingin permanen di lokal saat dev, Anda harus mendownload file DB-nya.
-          
+          if (dasmenSheet || paudSheet) {
+            setProgress("Memproses data Rapor Pendidikan (SPM)...");
+            db.run("CREATE TABLE IF NOT EXISTS rapor_spm (npsn TEXT, nama_satuan TEXT, jenis_satuan TEXT, kecamatan TEXT, jenjang TEXT, indikator TEXT, skor REAL, label TEXT)");
+            db.run("DELETE FROM rapor_spm");
+
+            const insertRapor = db.prepare(`
+              INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+
+            if (dasmenSheet) {
+              const data = XLSX.utils.sheet_to_json(workbook.Sheets[dasmenSheet], { header: 1 }) as any[][];
+              const dasmenIndicators = [
+                { name: 'Literasi', labelIdx: 35, valIdx: 37 },
+                { name: 'Numerasi', labelIdx: 44, valIdx: 46 },
+                { name: 'Karakter', labelIdx: 55, valIdx: 57 },
+                { name: 'Kualitas Pembelajaran', labelIdx: 90, valIdx: 92 },
+                { name: 'Iklim Keamanan', labelIdx: 111, valIdx: 113 },
+                { name: 'Iklim Kebinekaan', labelIdx: 134, valIdx: 136 },
+                { name: 'Iklim Inklusivitas', labelIdx: 138, valIdx: 140 }
+              ];
+              for (let i = 6; i < data.length; i++) {
+                const row = data[i];
+                if (!row || !row[0]) continue;
+                dasmenIndicators.forEach(ind => {
+                  insertRapor.run([row[0], row[1], row[2], row[5], 'DASMEN', ind.name, parseVal(row[ind.valIdx]), row[ind.labelIdx] || 'N/A']);
+                });
+                countRapor++;
+              }
+            }
+
+            if (paudSheet) {
+              const data = XLSX.utils.sheet_to_json(workbook.Sheets[paudSheet], { header: 1 }) as any[][];
+              const paudIndicators = [
+                { name: 'Perencanaan Pembelajaran', labelIdx: 6, valIdx: 8 },
+                { name: 'Proses Belajar', labelIdx: 13, valIdx: 15 },
+                { name: 'Kemampuan Fondasi', labelIdx: 26, valIdx: 28 },
+                { name: 'Sarana Prasarana', labelIdx: 53, valIdx: 55 },
+                { name: 'Iklim Keamanan', labelIdx: 65, valIdx: 67 },
+                { name: 'Layanan Holistik Integratif', labelIdx: 99, valIdx: 101 }
+              ];
+              for (let i = 6; i < data.length; i++) {
+                const row = data[i];
+                if (!row || !row[0]) continue;
+                paudIndicators.forEach(ind => {
+                  insertRapor.run([row[0], row[1], row[2], row[5], 'PAUD', ind.name, parseVal(row[ind.valIdx]), row[ind.labelIdx] || 'N/A']);
+                });
+                countRapor++;
+              }
+            }
+            insertRapor.free();
+          }
+
+          if (countSiswa === 0 && countRapor === 0) {
+            throw new Error("Format file tidak dikenali sebagai Rekapitulasi PBS maupun Rapor Pendidikan.");
+          }
+
           await queryClient.invalidateQueries();
-          
           setStatus("success");
-          toast.success(`Berhasil mengupdate ${count} data siswa (Lokal).`);
+          
+          let msg = "Berhasil memperbarui: ";
+          if (countSiswa > 0) msg += `${countSiswa} Siswa PBS. `;
+          if (countRapor > 0) msg += `${countRapor} Sekolah Rapor Pendidikan. `;
+          toast.success(msg);
         } catch (err: any) {
           console.error(err);
           setStatus("error");
