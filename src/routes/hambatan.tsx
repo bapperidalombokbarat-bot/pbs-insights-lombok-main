@@ -24,22 +24,22 @@ function HambatanPage() {
       const a = tingkat !== "Semua" ? [tingkat] : [];
       const summary = (await query<any>(`
         SELECT
-          (SELECT COUNT(*) FROM hambatan_siswa) AS total,
-          (SELECT COUNT(*) FROM hambatan_siswa WHERE tingkat_hambatan='Ringan') AS ringan,
-          (SELECT COUNT(*) FROM hambatan_siswa WHERE tingkat_hambatan='Sedang') AS sedang,
-          (SELECT COUNT(*) FROM hambatan_siswa WHERE tingkat_hambatan='Berat')  AS berat
+          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa) AS total,
+          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Ringan') AS ringan,
+          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Sedang') AS sedang,
+          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Berat')  AS berat
       `))[0];
       const perJenis = await query<any>(`
         SELECT jenis_hambatan,
-          SUM(CASE WHEN tingkat_hambatan='Ringan' THEN 1 ELSE 0 END) AS ringan,
-          SUM(CASE WHEN tingkat_hambatan='Sedang' THEN 1 ELSE 0 END) AS sedang,
-          SUM(CASE WHEN tingkat_hambatan='Berat'  THEN 1 ELSE 0 END) AS berat,
-          COUNT(*) AS total
+          COUNT(DISTINCT CASE WHEN tingkat_hambatan='Ringan' THEN siswa_id END) AS ringan,
+          COUNT(DISTINCT CASE WHEN tingkat_hambatan='Sedang' THEN siswa_id END) AS sedang,
+          COUNT(DISTINCT CASE WHEN tingkat_hambatan='Berat'  THEN siswa_id END) AS berat,
+          COUNT(DISTINCT siswa_id) AS total
         FROM hambatan_siswa ${w}
         GROUP BY jenis_hambatan ORDER BY total DESC
       `, a);
       const perJenjang = await query<any>(`
-        SELECT s.jenjang, h.tingkat_hambatan, COUNT(*) AS total
+        SELECT s.jenjang, h.tingkat_hambatan, COUNT(DISTINCT h.siswa_id) AS total
         FROM siswa s JOIN hambatan_siswa h ON s.id=h.siswa_id
         GROUP BY s.jenjang, h.tingkat_hambatan
       `);

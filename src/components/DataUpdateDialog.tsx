@@ -84,32 +84,30 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
               insertSiswa.run([id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]);
 
               const difficulties: { col: string, val: string }[] = [];
-              let banyakKesulitanCount = 0;
+              let totalScore = 0;
 
               HAMBATAN_COLS.forEach(col => {
                 let val = row[col];
                 if (val && val !== "Tidak ada" && val !== "-" && val !== "Tidak Ada Kesulitan" && val !== "Tidak ada kesulitan") {
-                  if (val === "Banyak Kesulitan") banyakKesulitanCount++;
+                  let score = 0;
+                  if (val === "Sedikit Kesulitan" || val === "Ringan") score = 1;
+                  else if (val === "Banyak Kesulitan" || val === "Sedang") score = 3;
+                  else if (val === "Tidak Bisa Sama Sekali" || val === "Berat") score = 5;
+                  
+                  totalScore += score;
                   difficulties.push({ col, val });
                 }
               });
 
+              let finalCategory = "Ringan";
+              if (totalScore >= 9) finalCategory = "Berat";
+              else if (totalScore >= 4) finalCategory = "Sedang";
+              else if (totalScore >= 1) finalCategory = "Ringan";
+
               difficulties.forEach(h => {
-                let finalVal = h.val;
-                // Mapping Ringan
-                if (finalVal === "Sedikit Kesulitan" || finalVal === "Ringan") {
-                  finalVal = "Ringan";
-                } 
-                // Mapping Sedang & Upgrade ke Berat jika Akumulatif (Minimal 60% / 6 Indikator)
-                else if (finalVal === "Banyak Kesulitan" || finalVal === "Sedang") {
-                  finalVal = banyakKesulitanCount >= 6 ? "Berat" : "Sedang";
-                } 
-                // Mapping Berat Langsung
-                else if (finalVal === "Tidak Bisa Sama Sekali" || finalVal === "Berat") {
-                  finalVal = "Berat";
+                if (totalScore >= 1) {
+                  insertHambatan.run([id, h.col, finalCategory]);
                 }
-                
-                insertHambatan.run([id, h.col, finalVal]);
               });
               countSiswa++;
             });
