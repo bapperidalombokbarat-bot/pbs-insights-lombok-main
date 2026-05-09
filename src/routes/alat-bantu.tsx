@@ -113,9 +113,15 @@ function AlatBantuPage() {
                         <td colSpan={6} className="px-6 py-4">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {(alatByHambatan[r.jenis_hambatan] || []).map(a => (
-                              <div key={a.id} className="bg-card p-4 rounded-xl border border-border shadow-sm">
-                                <div className="font-bold text-sm text-foreground">{a.nama_alat}</div>
-                                <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-semibold">Kategori: {a.kategori}</div>
+                              <div key={a.id} className={`p-4 rounded-xl border shadow-sm transition-all ${a.kategori === 'SDM' ? 'bg-primary/5 border-primary/30 ring-1 ring-primary/20' : 'bg-card border-border'}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="font-bold text-sm text-foreground">{a.nama_alat}</div>
+                                  {a.kategori === 'SDM' && <span className="text-[9px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold animate-pulse">PENTING</span>}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-2">
+                                  <span className="opacity-70">{KAT_ICON[a.kategori] || "🧰"}</span> {a.kategori}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground mt-2 leading-relaxed">{a.deskripsi}</div>
                               </div>
                             ))}
                           </div>
