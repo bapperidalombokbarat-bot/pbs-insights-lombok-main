@@ -22,6 +22,14 @@ const KAT_IMG: Record<string, string> = {
   Auditori: "/illustrations/hearing_aid.png",
   Literasi: "/illustrations/literacy.png",
   SDM: "/illustrations/gpk.png",
+  Optik: "/illustrations/optik.png",
+  Teknologi: "/illustrations/teknologi.png",
+  Komunikasi: "/illustrations/komunikasi.png",
+  Manajemen: "/illustrations/manajemen.png",
+  Sensorik: "/illustrations/sensorik.png",
+  Psikologis: "/illustrations/psikologis.png",
+  Akademis: "/illustrations/literacy.png", // Reusing literacy for academic as it fits
+  "Motorik Halus": "/illustrations/wheelchair.png", // Temporary fallback
 };
 
 function AlatBantuPage() {
