@@ -47,29 +47,17 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
             throw new Error("File excel kosong atau tidak valid.");
           }
 
-          setProgress(`Memproses ${rows.length} data siswa...`);
+          setProgress(`Menyiapkan ${rows.length} data untuk Turso...`);
           
-          const db = await getDb();
+          const statements: any[] = [];
           
-          // 1. Bersihkan data lama (opsional, tapi biasanya 'suntik' data baru menggantikan yg lama)
-          db.run("DELETE FROM hambatan_siswa");
-          db.run("DELETE FROM siswa");
-
-          // 2. Siapkan statement
-          const insertSiswa = db.prepare(`
-            INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `);
-
-          const insertHambatan = db.prepare(`
-            INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
-            VALUES (?, ?, ?)
-          `);
+          // 1. Bersihkan data lama (opsional)
+          statements.push({ sql: "DELETE FROM hambatan_siswa", args: [] });
+          statements.push({ sql: "DELETE FROM siswa", args: [] });
 
           let count = 0;
           for (const row of rows) {
             const id = count + 1;
-            // Mapping kolom (sesuaikan dengan rekapitulasi PBS)
             const nama = row["Nama Peserta Didik"] || row["Nama"] || row["nama_siswa"];
             const nisn = row["NISN"] || "";
             const sekolah = row["Satuan Pendidikan"] || row["Sekolah"] || "";
@@ -80,34 +68,42 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
 
             if (!nama) continue;
 
-            insertSiswa.run([id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]);
+            statements.push({
+              sql: `INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              args: [id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]
+            });
 
             // Cek hambatan
             HAMBATAN_COLS.forEach(col => {
               const val = row[col];
               if (val && val !== "Tidak ada" && val !== "-") {
-                insertHambatan.run([id, col, val]);
+                statements.push({
+                  sql: `INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
+                        VALUES (?, ?, ?)`,
+                  args: [id, col, val]
+                });
               }
             });
 
             count++;
-            if (count % 100 === 0) {
-              setProgress(`Menyimpan data... (${count}/${rows.length})`);
-            }
           }
 
-          insertSiswa.free();
-          insertHambatan.free();
-
-          setProgress("Sinkronisasi database...");
-          // Di sini kita bisa menyimpan DB ke indexedDB jika mau, 
-          // tapi untuk sekarang kita cukup update state di memori.
+          setProgress(`Mengirim ${statements.length} perintah ke cloud Turso...`);
+          
+          const { executeBatch } = await import("@/lib/db");
+          const chunkSize = 500;
+          for (let i = 0; i < statements.length; i += chunkSize) {
+            const chunk = statements.slice(i, i + chunkSize);
+            setProgress(`Sync cloud... (${i}/${statements.length})`);
+            await executeBatch(chunk);
+          }
           
           // Force refresh queries
           await queryClient.invalidateQueries();
           
           setStatus("success");
-          toast.success(`Berhasil mengupdate ${count} data siswa.`);
+          toast.success(`Berhasil sinkronisasi ${count} data ke Turso.`);
         } catch (err: any) {
           console.error(err);
           setStatus("error");
