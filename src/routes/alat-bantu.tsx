@@ -38,10 +38,10 @@ function AlatBantuPage() {
     queryFn: async () => {
       const perHambatan = await query<any>(`
         SELECT jenis_hambatan,
-          SUM(CASE WHEN tingkat_hambatan='Ringan' THEN 1 ELSE 0 END) AS ringan,
-          SUM(CASE WHEN tingkat_hambatan='Sedang' THEN 1 ELSE 0 END) AS sedang,
-          SUM(CASE WHEN tingkat_hambatan='Berat'  THEN 1 ELSE 0 END) AS berat,
-          COUNT(*) AS total
+          COUNT(DISTINCT CASE WHEN tingkat_hambatan='Ringan' THEN siswa_id END) AS ringan,
+          COUNT(DISTINCT CASE WHEN tingkat_hambatan='Sedang' THEN siswa_id END) AS sedang,
+          COUNT(DISTINCT CASE WHEN tingkat_hambatan='Berat'  THEN siswa_id END) AS berat,
+          COUNT(DISTINCT siswa_id) AS total
         FROM hambatan_siswa GROUP BY jenis_hambatan ORDER BY total DESC
       `);
       const alat = await query<any>(`SELECT * FROM alat_bantu ORDER BY kategori, nama_alat`);

@@ -34,16 +34,16 @@ function KecamatanPage() {
 
       const perKec = await query<any>(`
         SELECT s.kecamatan,
-          SUM(CASE WHEN h.tingkat_hambatan='Ringan' THEN 1 ELSE 0 END) AS ringan,
-          SUM(CASE WHEN h.tingkat_hambatan='Sedang' THEN 1 ELSE 0 END) AS sedang,
-          SUM(CASE WHEN h.tingkat_hambatan='Berat'  THEN 1 ELSE 0 END) AS berat
+          COUNT(DISTINCT CASE WHEN h.tingkat_hambatan='Ringan' THEN h.siswa_id END) AS ringan,
+          COUNT(DISTINCT CASE WHEN h.tingkat_hambatan='Sedang' THEN h.siswa_id END) AS sedang,
+          COUNT(DISTINCT CASE WHEN h.tingkat_hambatan='Berat'  THEN h.siswa_id END) AS berat
         FROM siswa s LEFT JOIN hambatan_siswa h ON s.id=h.siswa_id
         ${jenjang !== "Semua" ? "WHERE s.jenjang=?" : ""}
         GROUP BY s.kecamatan ORDER BY s.kecamatan
       `, jenjang !== "Semua" ? [jenjang] : []);
 
       const heatmap = await query<any>(`
-        SELECT s.kecamatan, h.jenis_hambatan, COUNT(*) AS total
+        SELECT s.kecamatan, h.jenis_hambatan, COUNT(DISTINCT h.siswa_id) AS total
         FROM siswa s JOIN hambatan_siswa h ON s.id=h.siswa_id
         ${jenjang !== "Semua" ? "WHERE s.jenjang=?" : ""}
         GROUP BY s.kecamatan, h.jenis_hambatan
