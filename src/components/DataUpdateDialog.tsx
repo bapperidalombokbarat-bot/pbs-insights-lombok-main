@@ -92,7 +92,7 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
                   let score = 0;
                   if (val === "Sedikit Kesulitan" || val === "Ringan") score = 1;
                   else if (val === "Banyak Kesulitan" || val === "Sedang") score = 3;
-                  else if (val === "Tidak Bisa Sama Sekali" || val === "Berat") score = 5;
+                  else if (val === "Tidak Bisa Sama Sekali" || val === "Berat") score = 4;
                   
                   totalScore += score;
                   difficulties.push({ col, val });

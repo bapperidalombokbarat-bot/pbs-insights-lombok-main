@@ -74,7 +74,7 @@ async function permanentImport() {
         let score = 0;
         if (val === "Sedikit Kesulitan") score = 1;
         else if (val === "Banyak Kesulitan") score = 3;
-        else if (val === "Tidak Bisa Sama Sekali") score = 5;
+        else if (val === "Tidak Bisa Sama Sekali") score = 4;
         
         totalScore += score;
         studentDifficulties.push({ col, val });
