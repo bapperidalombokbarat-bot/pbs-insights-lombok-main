@@ -108,10 +108,15 @@ function DashboardPage() {
                   {donut.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Tooltip 
-                  contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                  contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "8px" }}
+                  itemStyle={{ color: "var(--foreground)" }}
                   formatter={(v: number) => fmt(v)} 
                 />
-                <Legend verticalAlign="bottom" iconType="circle" />
+                <Legend 
+                  verticalAlign="bottom" 
+                  iconType="circle" 
+                  formatter={(value) => <span style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 500 }}>{value}</span>}
+                />
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ marginTop: -30 }}>
@@ -147,8 +152,14 @@ function DashboardPage() {
                 {data.perJenjang.map((_, i) => <Cell key={i} fill={[COLORS.primary, COLORS.secondary, COLORS.success][i % 3]} />)}
               </Pie>
               <Tooltip 
-                contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "8px" }}
+                itemStyle={{ color: "var(--foreground)" }}
                 formatter={(v: number) => fmt(v)} 
+              />
+              <Legend 
+                verticalAlign="bottom" 
+                iconType="circle" 
+                formatter={(value) => <span style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 500 }}>{value}</span>}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -162,10 +173,14 @@ function DashboardPage() {
               <XAxis dataKey="k" tick={{ fontSize: 12, fill: "var(--chart-text)" }} />
               <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
               <Tooltip 
-                contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "8px" }}
+                itemStyle={{ color: "var(--foreground)" }}
                 formatter={(v: number) => fmt(v)} 
               />
-              <Legend />
+              <Legend 
+                verticalAlign="bottom" 
+                formatter={(value) => <span style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 500 }}>{value}</span>}
+              />
               <Bar dataKey="total" name="Total" fill="var(--primary)" radius={[6, 6, 0, 0]} />
               <Bar dataKey="berkebutuhan" name="Berkebutuhan" fill="var(--warning)" radius={[6, 6, 0, 0]} />
             </BarChart>

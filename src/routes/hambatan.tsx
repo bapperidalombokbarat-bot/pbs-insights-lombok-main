@@ -95,7 +95,10 @@ function HambatanPage() {
                 contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)" }}
                 itemStyle={{ color: "var(--foreground)" }}
               />
-              <Legend />
+              <Legend 
+                verticalAlign="top" 
+                formatter={(value) => <span style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 500 }}>{value}</span>}
+              />
               {(tingkat==='Semua' || tingkat==='Ringan') && <Bar dataKey="ringan" stackId="a" name="Ringan" fill="var(--success)" />}
               {(tingkat==='Semua' || tingkat==='Sedang') && <Bar dataKey="sedang" stackId="a" name="Sedang" fill="var(--warning)" />}
               {(tingkat==='Semua' || tingkat==='Berat')  && <Bar dataKey="berat"  stackId="a" name="Berat"  fill="var(--danger)" />}
@@ -129,7 +132,10 @@ function HambatanPage() {
             <Tooltip 
               contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)" }}
             />
-            <Legend />
+            <Legend 
+              verticalAlign="top" 
+              formatter={(value) => <span style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 500 }}>{value}</span>}
+            />
             <Bar dataKey="Ringan" fill="var(--success)" radius={[4,4,0,0]} />
             <Bar dataKey="Sedang" fill="var(--warning)" radius={[4,4,0,0]} />
             <Bar dataKey="Berat"  fill="var(--danger)" radius={[4,4,0,0]} />
