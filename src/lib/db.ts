@@ -38,6 +38,43 @@ export async function saveDb() {
   });
 }
 
+async function ensureAlatBantu(db: Database) {
+  const count = (db.exec("SELECT COUNT(*) as n FROM alat_bantu")[0].values[0][0] as number);
+  if (count === 0) {
+    console.log("Katalog alat bantu kosong, memulihkan data standar...");
+    const tools = [
+      ["Kesulitan Penglihatan", "Kacamata Refraksi", "Optik", "Kacamata untuk membantu koreksi penglihatan jarak jauh/dekat."],
+      ["Kesulitan Penglihatan", "Magnifier (Kaca Pembesar)", "Optik", "Alat bantu untuk memperbesar tulisan atau objek."],
+      ["Kesulitan Penglihatan", "Buku Braille / Audio Book", "Literasi", "Media belajar alternatif untuk hambatan penglihatan berat."],
+      ["Kesulitan Pendengaran", "Hearing Aid (Alat Bantu Dengar)", "Auditori", "Memperkeras suara yang masuk ke telinga."],
+      ["Kesulitan Pendengaran", "SIBI / ASL Trainer", "Komunikasi", "Modul atau aplikasi bahasa isyarat."],
+      ["Kesulitan Pendengaran", "Visual Alert System", "Teknologi", "Lampu indikator sebagai pengganti alarm suara."],
+      ["Kesulitan Motorik Kasar", "Kursi Roda Standard", "Mobilitas", "Alat bantu mobilisasi untuk hambatan motorik tungkai."],
+      ["Kesulitan Motorik Kasar", "Kruk / Walker", "Mobilitas", "Alat bantu jalan untuk keseimbangan."],
+      ["Kesulitan Gerak dan Koordinasi Jari", "Adaptor Pensil", "Motorik Halus", "Alat bantu pegangan agar lebih mudah menulis."],
+      ["Kesulitan Gerak dan Koordinasi Jari", "Keyboard Adaptif", "Teknologi", "Keyboard dengan tombol besar untuk koordinasi jari terbatas."],
+      ["Kesulitan Berbicara", "Communication Board", "Komunikasi", "Papan simbol untuk membantu menyampaikan keinginan."],
+      ["Kesulitan Berbicara", "Aplikasi Text-to-Speech", "Teknologi", "Aplikasi pengubah teks menjadi suara."],
+      ["Kesulitan Kemampuan Fungsi Intelektual", "Guru Pembimbing Khusus (GPK)", "SDM", "Pendampingan khusus untuk adaptasi kurikulum."],
+      ["Kesulitan Kemampuan Fungsi Intelektual", "Media Manipulatif", "Akademis", "Alat peraga konkrit untuk membantu pemahaman konsep."],
+      ["Kesulitan Membaca Diseleksia", "Software Font Dyslexia", "Teknologi", "Font khusus dan penggaris baca untuk fokus."],
+      ["Kesulitan Membaca Diseleksia", "Reading Tracker", "Literasi", "Alat bantu untuk menelusuri baris teks saat membaca."],
+      ["Kesulitan Perilaku Sosialisasi", "Kartu Skenario Sosial", "Psikologis", "Panduan visual untuk interaksi sosial."],
+      ["Kesulitan Atensi", "Fidget Spinner / Stress Ball", "Sensorik", "Alat bantu untuk membantu fokus dan menyalurkan energi."],
+      ["Kesulitan Atensi", "Noise Cancelling Headphone", "Sensorik", "Mengurangi distraksi suara dari lingkungan."],
+      ["Kesulitan Emosi", "Weighted Blanket", "Terapi", "Selimut pemberat untuk memberikan rasa tenang."],
+      ["Kesulitan Emosi", "Visual Timer", "Manajemen", "Alat bantu visual untuk mengelola transisi aktivitas."],
+    ];
+    const stmt = db.prepare("INSERT INTO alat_bantu (jenis_hambatan, nama_alat, kategori, deskripsi) VALUES (?, ?, ?, ?)");
+    tools.forEach(t => stmt.run(t));
+    stmt.free();
+    // Jika kita di browser, simpan hasil pemulihan ini
+    if (typeof window !== "undefined") {
+        setTimeout(() => saveDb(), 1000);
+    }
+  }
+}
+
 export function getDb(): Promise<Database> {
   if (!dbPromise) {
     dbPromise = (async () => {
@@ -47,17 +84,25 @@ export function getDb(): Promise<Database> {
         const localBuf = await getStoredDb();
         if (localBuf) {
           console.log("Memuat database dari penyimpanan lokal...");
-          return new SQL.Database(localBuf);
+          const db = new SQL.Database(localBuf);
+          await ensureAlatBantu(db);
+          return db;
         }
 
         // Jika tidak ada, ambil dari file publik
         const res = await fetch("/data/pbs.db");
         if (!res.ok) throw new Error("Gagal memuat file pbs.db");
         const buf = await res.arrayBuffer();
-        return new SQL.Database(new Uint8Array(buf));
+        const db = new SQL.Database(new Uint8Array(buf));
+        await ensureAlatBantu(db);
+        return db;
       } catch (err) {
         console.warn("Menggunakan database kosong baru...", err);
-        return new SQL.Database();
+        const db = new SQL.Database();
+        // Pastikan tabel ada dulu sebelum diisi
+        db.run("CREATE TABLE IF NOT EXISTS alat_bantu (id INTEGER PRIMARY KEY AUTOINCREMENT, jenis_hambatan TEXT, nama_alat TEXT, kategori TEXT, deskripsi TEXT)");
+        await ensureAlatBantu(db);
+        return db;
       }
     })();
   }
