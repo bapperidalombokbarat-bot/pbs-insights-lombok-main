@@ -103,10 +103,14 @@ function SPMPage() {
             <select 
               value={kec} 
               onChange={(e) => { setKec(e.target.value); setPage(1); }} 
-              className="border border-border bg-card/50 backdrop-blur-sm rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none min-w-[160px]"
+              className="border border-border bg-card text-foreground rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none min-w-[160px] shadow-sm"
             >
-              <option>Semua</option>
-              {data.kecList.map((k: any) => <option key={k.kecamatan} value={k.kecamatan}>{k.kecamatan}</option>)}
+              <option value="Semua" className="bg-card text-foreground">Semua Kecamatan</option>
+              {data.kecList.map((k: any) => (
+                <option key={k.kecamatan} value={k.kecamatan} className="bg-card text-foreground">
+                  {k.kecamatan}
+                </option>
+              ))}
             </select>
           </div>
           
@@ -115,11 +119,11 @@ function SPMPage() {
             <select 
               value={jenjang} 
               onChange={(e) => { setJenjang(e.target.value); setPage(1); }} 
-              className="border border-border bg-card/50 backdrop-blur-sm rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none min-w-[140px]"
+              className="border border-border bg-card text-foreground rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none min-w-[140px] shadow-sm"
             >
-              <option value="Semua">Semua Jenjang</option>
-              <option value="DASMEN">Dasmen/Vokasi</option>
-              <option value="PAUD">PAUD</option>
+              <option value="Semua" className="bg-card text-foreground">Semua Jenjang</option>
+              <option value="DASMEN" className="bg-card text-foreground">Dasmen/Vokasi</option>
+              <option value="PAUD" className="bg-card text-foreground">PAUD</option>
             </select>
           </div>
         </div>
