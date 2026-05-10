@@ -37,6 +37,14 @@ const NAME_IMG: Record<string, string> = {
   "Hearing Aid (Alat Bantu Dengar)": "/illustrations/hearing_aid.png",
   "Buku Braille / Audio Book": "/illustrations/braille.png",
   "Guru Pembimbing Khusus (GPK)": "/illustrations/gpk.png",
+  "Adaptor Pensil": "/illustrations/pencil_adaptor.png",
+  "Media Manipulatif": "/illustrations/manipulative.png",
+  "Magnifier (Kaca Pembesar)": "/illustrations/magnifier.png",
+  "Reading Tracker": "/illustrations/reading_tracker.png",
+  "Fidget Spinner / Stress Ball": "/illustrations/fidget.png",
+  "Noise Cancelling Headphone": "/illustrations/headphones.png",
+  "Visual Timer": "/illustrations/timer.png",
+  "Weighted Blanket": "/illustrations/blanket.png",
 };
 
 function AlatBantuPage() {
