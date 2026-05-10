@@ -154,7 +154,9 @@ function HambatanPage() {
             <Bar dataKey="Berat"  fill="var(--danger)" radius={[4,4,0,0]} />
           </BarChart>
         </ResponsiveContainer>
-    <div className="chart-card">
+      </div>
+
+      <div className="chart-card">
         <h3>Glosarium & Penjelasan Jenis Hambatan</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
           {Object.entries(DESKRIPSI_HAMBATAN).map(([title, desc]) => (
