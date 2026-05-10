@@ -118,14 +118,14 @@ function AlatBantuPage() {
                 return (
                   <Fragment key={r.jenis_hambatan}>
                     <tr 
-                      className={`border-t border-border cursor-pointer transition-colors hover:bg-accent/50 ${prio ? 'bg-warning/10' : ''}`} 
+                      className={`border-t border-border cursor-pointer transition-colors hover:bg-muted/80 ${prio ? 'bg-warning/5 dark:bg-warning/10' : ''}`} 
                       onClick={() => setExpanded(isOpen ? null : r.jenis_hambatan)}
                     >
-                      <td className="px-3 py-2 font-medium">{HAMBATAN_SHORT[r.jenis_hambatan]}</td>
+                      <td className="px-3 py-2 font-medium text-foreground">{HAMBATAN_SHORT[r.jenis_hambatan]}</td>
                       <td className="px-3 py-2 text-right"><span className="badge-pill badge-ringan">{fmt(r.ringan)}</span></td>
                       <td className="px-3 py-2 text-right"><span className="badge-pill badge-sedang">{fmt(r.sedang)}</span></td>
                       <td className="px-3 py-2 text-right"><span className="badge-pill badge-berat">{fmt(r.berat)}</span></td>
-                      <td className="px-3 py-2 text-right font-bold">{fmt(r.total)}</td>
+                      <td className="px-3 py-2 text-right font-bold text-foreground">{fmt(r.total)}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
                         <span className="truncate max-w-[200px]">
                           {(alatByHambatan[r.jenis_hambatan] || []).map(a => a.nama_alat).join(", ")}
@@ -134,21 +134,21 @@ function AlatBantuPage() {
                       </td>
                     </tr>
                     {isOpen && (
-                      <tr className="bg-muted/30">
+                      <tr className="bg-muted/20 dark:bg-muted/10">
                         <td colSpan={6} className="px-6 py-4">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {(alatByHambatan[r.jenis_hambatan] || []).map(a => (
-                              <div key={a.id} className={`p-4 rounded-xl border shadow-sm transition-all overflow-hidden ${a.kategori === 'SDM' ? 'bg-primary/5 border-primary/30 ring-1 ring-primary/20' : 'bg-card border-border'}`}>
+                              <div key={a.id} className={`p-4 rounded-xl border shadow-sm transition-all overflow-hidden ${a.kategori === 'SDM' ? 'bg-primary/5 dark:bg-primary/10 border-primary/30 ring-1 ring-primary/20' : 'bg-card border-border'}`}>
                                 <div className="flex gap-4">
                                   {KAT_IMG[a.kategori] && (
-                                    <div className="w-16 h-16 shrink-0 rounded-lg bg-white p-1 border border-border/50 shadow-inner">
+                                    <div className="w-16 h-16 shrink-0 rounded-lg bg-white dark:bg-muted p-1 border border-border/50 shadow-inner">
                                       <img src={KAT_IMG[a.kategori]} alt={a.kategori} className="w-full h-full object-contain" />
                                     </div>
                                   )}
                                   <div className="flex-1">
                                     <div className="flex items-center justify-between mb-1">
                                       <div className="font-bold text-sm text-foreground">{a.nama_alat}</div>
-                                      {a.kategori === 'SDM' && <span className="text-[9px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold animate-pulse">PENTING</span>}
+                                      {a.kategori === 'SDM' && <span className="text-[9px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold">PENTING</span>}
                                     </div>
                                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-2">
                                       <span className="opacity-70">{KAT_ICON[a.kategori] || "🧰"}</span> {a.kategori}
