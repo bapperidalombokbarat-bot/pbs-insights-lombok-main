@@ -44,9 +44,11 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
           let countRapor = 0;
 
           const parseVal = (v: any) => {
-            if (v === null || v === undefined || v === "") return 0;
+            if (v === null || v === undefined || v === "") return null;
             if (typeof v === "number") return v;
-            return parseFloat(v.toString().replace(",", "."));
+            const s = v.toString().trim().replace(",", ".");
+            if (s === "-" || s === "" || isNaN(Number(s))) return null;
+            return parseFloat(s);
           };
 
           // 1. CEK DATA REKAPITULASI PBS
@@ -135,16 +137,17 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
                 { name: 'Literasi', labelIdx: 35, valIdx: 37 },
                 { name: 'Numerasi', labelIdx: 44, valIdx: 46 },
                 { name: 'Karakter', labelIdx: 55, valIdx: 57 },
-                { name: 'Kualitas Pembelajaran', labelIdx: 90, valIdx: 92 },
-                { name: 'Iklim Keamanan', labelIdx: 111, valIdx: 113 },
-                { name: 'Iklim Kebinekaan', labelIdx: 134, valIdx: 136 },
-                { name: 'Iklim Inklusivitas', labelIdx: 138, valIdx: 140 }
+                { name: 'Kualitas Pembelajaran', labelIdx: 91, valIdx: 93 },
+                { name: 'Iklim Keamanan', labelIdx: 112, valIdx: 114 },
+                { name: 'Iklim Kebinekaan', labelIdx: 132, valIdx: 134 },
+                { name: 'Iklim Inklusivitas', labelIdx: 139, valIdx: 141 }
               ];
               for (let i = 6; i < data.length; i++) {
                 const row = data[i];
                 if (!row || !row[0]) continue;
                 dasmenIndicators.forEach(ind => {
-                  insertRapor.run([row[0], row[1], row[2], row[5], 'DASMEN', ind.name, parseVal(row[ind.valIdx]), row[ind.labelIdx] || 'N/A']);
+                  const score = parseVal(row[ind.valIdx]);
+                  insertRapor.run([row[0], row[1], row[2], row[5], 'DASMEN', ind.name, score, row[ind.labelIdx] || 'N/A']);
                 });
                 countRapor++;
               }
@@ -156,15 +159,21 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
                 { name: 'Perencanaan Pembelajaran', labelIdx: 6, valIdx: 8 },
                 { name: 'Proses Belajar', labelIdx: 13, valIdx: 15 },
                 { name: 'Kemampuan Fondasi', labelIdx: 26, valIdx: 28 },
+                { name: 'Kebiasaan Anak Hebat', labelIdx: 42, valIdx: 44 },
                 { name: 'Sarana Prasarana', labelIdx: 53, valIdx: 55 },
                 { name: 'Iklim Keamanan', labelIdx: 65, valIdx: 67 },
-                { name: 'Layanan Holistik Integratif', labelIdx: 99, valIdx: 101 }
+                { name: 'Iklim Inklusivitas & Kebinekaan', labelIdx: 75, valIdx: 77 },
+                { name: 'Refleksi & Perbaikan Pembelajaran', labelIdx: 83, valIdx: 85 },
+                { name: 'Kepemimpinan Instruksional', labelIdx: 90, valIdx: 92 },
+                { name: 'Kemitraan Orang Tua', labelIdx: 97, valIdx: 99 },
+                { name: 'Layanan Holistik Integratif', labelIdx: 101, valIdx: 103 }
               ];
               for (let i = 6; i < data.length; i++) {
                 const row = data[i];
                 if (!row || !row[0]) continue;
                 paudIndicators.forEach(ind => {
-                  insertRapor.run([row[0], row[1], row[2], row[5], 'PAUD', ind.name, parseVal(row[ind.valIdx]), row[ind.labelIdx] || 'N/A']);
+                  const score = parseVal(row[ind.valIdx]);
+                  insertRapor.run([row[0], row[1], row[2], row[5], 'PAUD', ind.name, score, row[ind.labelIdx] || 'N/A']);
                 });
                 countRapor++;
               }

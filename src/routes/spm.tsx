@@ -3,8 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { query, fmt } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter 
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Cell,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
 
 export const Route = createFileRoute("/spm")({
@@ -15,6 +19,7 @@ export const Route = createFileRoute("/spm")({
 function SPMPage() {
   const [kec, setKec] = useState<string>("Semua");
   const [jenjang, setJenjang] = useState<string>("Semua");
+  const [selectedSekolah, setSelectedSekolah] = useState<any>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["spm-data", kec, jenjang],
@@ -78,6 +83,14 @@ function SPMPage() {
     if (name.includes('Kualitas')) return "✨";
     if (name.includes('PAUD')) return "🧸";
     if (name.includes('Holistik')) return "🏥";
+    if (name.includes('Perencanaan')) return "📝";
+    if (name.includes('Proses Belajar')) return "🎓";
+    if (name.includes('Fondasi')) return "🧱";
+    if (name.includes('Kebiasaan')) return "👶";
+    if (name.includes('Sarana')) return "🏫";
+    if (name.includes('Refleksi')) return "🔄";
+    if (name.includes('Kepemimpinan')) return "👔";
+    if (name.includes('Kemitraan')) return "👨‍👩‍👧";
     return "📊";
   };
 
@@ -129,9 +142,9 @@ function SPMPage() {
         </div>
       </div>
 
-      {/* Info Cards Row - Menggunakan grid-cols-4 agar terbagi menjadi 2 baris (4+3) dan tidak terpotong */}
+      {/* Info Cards Row - Menampilkan hingga 11 indikator utama */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {data.stats.slice(0, 7).map((st: any) => (
+        {data.stats.slice(0, 11).map((st: any) => (
           <InfoCard 
             key={st.indikator}
             label={st.indikator}
@@ -199,9 +212,13 @@ function SPMPage() {
                   const avgScore = s.school_avg || 0;
 
                   return (
-                    <tr key={s.npsn} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                    <tr 
+                      key={s.npsn} 
+                      className="border-b border-border/50 hover:bg-primary/5 cursor-pointer transition-colors group"
+                      onClick={() => setSelectedSekolah(s)}
+                    >
                       <td className="px-4 py-3">
-                        <div className="font-bold">{s.nama_satuan}</div>
+                        <div className="font-bold group-hover:text-primary transition-colors">{s.nama_satuan}</div>
                         <div className="text-[10px] text-muted-foreground">NPSN: {s.npsn}</div>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{s.kecamatan}</td>
@@ -211,9 +228,12 @@ function SPMPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono font-bold">
-                        <span className={avgScore >= 70 ? 'text-success' : avgScore >= 40 ? 'text-warning' : 'text-danger'}>
-                          {avgScore.toFixed(2)}
-                        </span>
+                        <div className="flex items-center justify-end gap-2">
+                          <span className={avgScore >= 70 ? 'text-success' : avgScore >= 40 ? 'text-warning' : 'text-danger'}>
+                            {avgScore.toFixed(2)}
+                          </span>
+                          <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">👁️</span>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -243,6 +263,77 @@ function SPMPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!selectedSekolah} onOpenChange={(open) => !open && setSelectedSekolah(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-2xl">{selectedSekolah?.jenjang === 'DASMEN' ? '🏫' : '🧸'}</span>
+              <div>
+                <div className="text-xl font-bold">{selectedSekolah?.nama_satuan}</div>
+                <div className="text-xs text-muted-foreground font-normal">NPSN: {selectedSekolah?.npsn} · {selectedSekolah?.kecamatan}</div>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-4 space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl bg-muted/30 border border-border/50 flex flex-col items-center justify-center">
+                <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Rata-rata Capaian</div>
+                <div className={`text-4xl font-black ${(selectedSekolah?.school_avg || 0) >= 70 ? 'text-success' : (selectedSekolah?.school_avg || 0) >= 40 ? 'text-warning' : 'text-danger'}`}>
+                  {(selectedSekolah?.school_avg || 0).toFixed(2)}
+                </div>
+              </div>
+              <div className="p-4 rounded-2xl bg-muted/30 border border-border/50 flex flex-col items-center justify-center">
+                <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Status SPM</div>
+                <div className={`text-xl font-bold ${(selectedSekolah?.school_avg || 0) >= 70 ? 'text-success' : (selectedSekolah?.school_avg || 0) >= 40 ? 'text-warning' : 'text-danger'}`}>
+                  {(selectedSekolah?.school_avg || 0) >= 70 ? 'TUNTAS' : (selectedSekolah?.school_avg || 0) >= 40 ? 'WASPADA' : 'RENDAH'}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold uppercase text-muted-foreground mb-3 flex items-center gap-2">
+                <span className="w-1 h-3 bg-primary rounded-full" />
+                Rincian Skor per Indikator
+              </h4>
+              <div className="space-y-3">
+                {selectedSekolah?.raw_scores?.split(',').map((pair: string, idx: number) => {
+                  const [name, scoreStr] = pair.split(':');
+                  const score = parseFloat(scoreStr);
+                  if (isNaN(score)) return null;
+
+                  return (
+                    <div key={idx} className="p-3 rounded-xl border border-border/50 bg-card hover:border-primary/30 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{getIndicatorIcon(name)}</span>
+                          <span className="font-semibold text-sm">{name}</span>
+                        </div>
+                        <span className={`font-mono font-bold ${score >= 70 ? 'text-success' : score >= 40 ? 'text-warning' : 'text-danger'}`}>
+                          {score.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-1000 ${score >= 70 ? 'bg-success' : score >= 40 ? 'bg-warning' : 'bg-danger'}`}
+                          style={{ width: `${score}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedSekolah(null)} className="rounded-xl">
+              Tutup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
