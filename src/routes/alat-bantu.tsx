@@ -118,7 +118,7 @@ function AlatBantuPage() {
                 return (
                   <Fragment key={r.jenis_hambatan}>
                     <tr 
-                      className={`border-t border-border cursor-pointer transition-colors hover:bg-muted/80 ${prio ? 'bg-warning/5 dark:bg-warning/10' : ''}`} 
+                      className={`border-t border-border cursor-pointer transition-colors hover:bg-muted/80 group ${prio ? 'bg-warning/5 dark:bg-warning/10' : ''}`} 
                       onClick={() => setExpanded(isOpen ? null : r.jenis_hambatan)}
                     >
                       <td className="px-3 py-2 font-medium text-foreground">{HAMBATAN_SHORT[r.jenis_hambatan]}</td>
@@ -126,11 +126,13 @@ function AlatBantuPage() {
                       <td className="px-3 py-2 text-right"><span className="badge-pill badge-sedang">{fmt(r.sedang)}</span></td>
                       <td className="px-3 py-2 text-right"><span className="badge-pill badge-berat">{fmt(r.berat)}</span></td>
                       <td className="px-3 py-2 text-right font-bold text-foreground">{fmt(r.total)}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
-                        <span className="truncate max-w-[200px]">
+                      <td className="px-3 py-2 text-[11px] flex items-center justify-between gap-2">
+                        <div className="truncate max-w-[220px] text-foreground/70 group-hover:text-foreground transition-colors italic">
                           {(alatByHambatan[r.jenis_hambatan] || []).map(a => a.nama_alat).join(", ")}
-                        </span>
-                        <span className="ml-2 text-primary shrink-0">{isOpen ? "▼" : "▶"}</span>
+                        </div>
+                        <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all ${isOpen ? 'bg-primary text-white rotate-0' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
+                          <span className="text-[10px]">{isOpen ? "▼" : "▶"}</span>
+                        </div>
                       </td>
                     </tr>
                     {isOpen && (
