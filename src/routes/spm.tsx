@@ -157,6 +157,7 @@ function SPMPage() {
               />
               <Tooltip 
                 contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
+                itemStyle={{ color: "var(--foreground)" }}
                 cursor={{ fill: 'var(--primary)', opacity: 0.05 }}
               />
               <Bar dataKey="avg_skor" name="Rata-rata Skor" radius={[0, 8, 8, 0]}>
