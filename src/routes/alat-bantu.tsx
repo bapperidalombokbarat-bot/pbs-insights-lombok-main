@@ -28,8 +28,15 @@ const KAT_IMG: Record<string, string> = {
   Manajemen: "/illustrations/manajemen.png",
   Sensorik: "/illustrations/sensorik.png",
   Psikologis: "/illustrations/psikologis.png",
-  Akademis: "/illustrations/literacy.png", // Reusing literacy for academic as it fits
-  "Motorik Halus": "/illustrations/wheelchair.png", // Temporary fallback
+};
+
+const NAME_IMG: Record<string, string> = {
+  "Kursi Roda Standard": "/illustrations/wheelchair.png",
+  "Kruk / Walker": "/illustrations/crutches.png",
+  "Kacamata Refraksi": "/illustrations/glasses.png",
+  "Hearing Aid (Alat Bantu Dengar)": "/illustrations/hearing_aid.png",
+  "Buku Braille / Audio Book": "/illustrations/braille.png",
+  "Guru Pembimbing Khusus (GPK)": "/illustrations/gpk.png",
 };
 
 function AlatBantuPage() {
@@ -142,9 +149,9 @@ function AlatBantuPage() {
                             {(alatByHambatan[r.jenis_hambatan] || []).map(a => (
                               <div key={a.id} className={`p-4 rounded-xl border shadow-sm transition-all overflow-hidden ${a.kategori === 'SDM' ? 'bg-primary/5 dark:bg-primary/10 border-primary/30 ring-1 ring-primary/20' : 'bg-card border-border'}`}>
                                 <div className="flex gap-4">
-                                  {KAT_IMG[a.kategori] && (
+                                  {(NAME_IMG[a.nama_alat] || KAT_IMG[a.kategori]) && (
                                     <div className="w-16 h-16 shrink-0 rounded-lg bg-white dark:bg-muted p-1 border border-border/50 shadow-inner">
-                                      <img src={KAT_IMG[a.kategori]} alt={a.kategori} className="w-full h-full object-contain" />
+                                      <img src={NAME_IMG[a.nama_alat] || KAT_IMG[a.kategori]} alt={a.nama_alat} className="w-full h-full object-contain" />
                                     </div>
                                   )}
                                   <div className="flex-1">
