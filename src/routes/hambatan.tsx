@@ -13,6 +13,19 @@ export const Route = createFileRoute("/hambatan")({
   component: HambatanPage,
 });
 
+const DESKRIPSI_HAMBATAN: Record<string, string> = {
+  "Kesulitan Penglihatan": "Hambatan indra penglihatan meskipun sudah dibantu kacamata, mencakup low vision hingga buta total.",
+  "Kesulitan Pendengaran": "Hambatan dalam mempersepsi suara, mulai dari gangguan pendengaran ringan hingga tuli.",
+  "Kesulitan Motorik Kasar": "Keterbatasan dalam gerakan fisik besar seperti berjalan, keseimbangan, atau berpindah tempat.",
+  "Kesulitan Gerak dan Koordinasi Jari": "Gangguan motorik halus yang mempengaruhi kemampuan menulis atau memegang benda kecil.",
+  "Kesulitan Berbicara": "Hambatan dalam memproduksi suara atau bahasa untuk berkomunikasi secara verbal dengan jelas.",
+  "Kesulitan Kemampuan Fungsi Intelektual": "Keterbatasan dalam fungsi intelektual dan perilaku adaptif (intelegensi di bawah rata-rata).",
+  "Kesulitan Membaca Diseleksia": "Gangguan belajar spesifik yang mempengaruhi kemampuan membaca, mengeja, dan mengenali kata.",
+  "Kesulitan Perilaku Sosialisasi": "Hambatan dalam memahami norma sosial atau berinteraksi (termasuk spektrum autisme).",
+  "Kesulitan Atensi": "Kesulitan dalam memusatkan perhatian, konsentrasi, atau mengendalikan impulsivitas (seperti ADHD).",
+  "Kesulitan Emosi": "Gangguan dalam regulasi perasaan seperti kecemasan berlebih atau perubahan suasana hati ekstrem.",
+};
+
 const TINGKAT = ["Semua", "Ringan", "Sedang", "Berat"];
 
 function HambatanPage() {
@@ -141,6 +154,23 @@ function HambatanPage() {
             <Bar dataKey="Berat"  fill="var(--danger)" radius={[4,4,0,0]} />
           </BarChart>
         </ResponsiveContainer>
+    <div className="chart-card">
+        <h3>Glosarium & Penjelasan Jenis Hambatan</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+          {Object.entries(DESKRIPSI_HAMBATAN).map(([title, desc]) => (
+            <div key={title} className="p-4 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                  <span className="text-xs font-bold">{HAMBATAN_SHORT[title].substring(0,2)}</span>
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-foreground mb-1">{title}</div>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">{desc}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
