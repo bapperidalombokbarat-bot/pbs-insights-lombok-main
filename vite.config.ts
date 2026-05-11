@@ -12,4 +12,17 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
+  vite: {
+    build: {
+      chunkSizeWarningLimit: 1000, // Menaikkan limit ke 1000KB agar peringatan hilang
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Memisahkan library besar ke file tersendiri agar loading lebih efisien
+            vendor: ["react", "react-dom", "recharts", "xlsx"],
+          },
+        },
+      },
+    },
+  },
 });
