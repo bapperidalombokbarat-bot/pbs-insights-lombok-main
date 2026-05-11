@@ -47,6 +47,19 @@ export async function run(sql: string, params: any[] = []) {
 }
 
 /**
+ * Fungsi untuk menjalankan banyak perintah sekaligus dalam satu transaksi (Batching)
+ * Sangat penting untuk performa saat insert data dalam jumlah besar ke Turso.
+ */
+export async function batch(statements: { sql: string, args: any[] }[]) {
+  try {
+    await client.batch(statements, "write");
+  } catch (error) {
+    console.error("Database Batch Error:", error);
+    throw error;
+  }
+}
+
+/**
  * Fungsi pembantu untuk inisialisasi tabel jika belum ada (opsional untuk Turso)
  * Biasanya schema diatur sekali di awal, tapi kita jaga-jaga di sini.
  */

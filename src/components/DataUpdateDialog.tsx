@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as XLSX from "xlsx/xlsx.mjs";
-import { HAMBATAN_COLS, run, saveDb } from "@/lib/db";
+import { HAMBATAN_COLS, run, saveDb, batch } from "@/lib/db";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   Dialog, 
@@ -60,7 +60,10 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
             await run("DELETE FROM hambatan_siswa");
             await run("DELETE FROM siswa");
 
-            for (const [idx, row] of (rows as any[]).entries()) {
+            let batchStatements: { sql: string, args: any[] }[] = [];
+            const BATCH_SIZE = 50; // Turso batch limit biasanya sekitar 100-200
+
+            for (const [idx, row] of rows.entries()) {
               const id = idx + 1;
               const nama = row["Nama Peserta Didik"] || row["Nama Siswa"] || row["Nama"] || row["nama_siswa"];
               if (!nama) continue;
@@ -72,10 +75,11 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
               const kelas = row["Kelas"] || row["Tingkat Kelas"] || row["tingkat_kelas"] || "";
               const jk = row["Jenis Kelamin"] || row["jenis_kelamin"] || "";
 
-              await run(`
-                INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-              `, [id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]);
+              batchStatements.push({
+                sql: `INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                args: [id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]
+              });
 
               const difficulties: { col: string, val: string }[] = [];
               let totalScore = 0;
@@ -100,13 +104,28 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
 
               for (const h of difficulties) {
                 if (totalScore >= 1) {
-                  await run(`
-                    INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
-                    VALUES (?, ?, ?)
-                  `, [id, h.col, finalCategory]);
+                  batchStatements.push({
+                    sql: `INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
+                          VALUES (?, ?, ?)`,
+                    args: [id, h.col, finalCategory]
+                  });
                 }
               }
+
               countSiswa++;
+
+              // Eksekusi batch jika sudah mencapai ukuran tertentu
+              if (batchStatements.length >= BATCH_SIZE) {
+                setProgress(`Mengunggah data... (${countSiswa}/${rows.length} siswa)`);
+                await batch(batchStatements);
+                batchStatements = [];
+              }
+            }
+
+            // Sisanya
+            if (batchStatements.length > 0) {
+              await batch(batchStatements);
+              batchStatements = [];
             }
           }
 
@@ -116,8 +135,10 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
 
           if (dasmenSheet || paudSheet) {
             setProgress("Memproses data Rapor Pendidikan (SPM)...");
-            await run("CREATE TABLE IF NOT EXISTS rapor_spm (npsn TEXT, nama_satuan TEXT, jenis_satuan TEXT, kecamatan TEXT, jenjang TEXT, indikator TEXT, skor REAL, label TEXT)");
             await run("DELETE FROM rapor_spm");
+
+            const BATCH_SIZE = 100;
+            let batchStatements: { sql: string, args: any[] }[] = [];
 
             if (dasmenSheet) {
               const data = XLSX.utils.sheet_to_json(workbook.Sheets[dasmenSheet], { header: 1 }) as any[][];
@@ -135,12 +156,19 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
                 if (!row || !row[0]) continue;
                 for (const ind of dasmenIndicators) {
                   const score = parseVal(row[ind.valIdx]);
-                  await run(`
-                    INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                  `, [row[0], row[1], row[2], row[5], 'DASMEN', ind.name, score, row[ind.labelIdx] || 'N/A']);
+                  batchStatements.push({
+                    sql: `INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    args: [row[0], row[1], row[2], row[5], 'DASMEN', ind.name, score, row[ind.labelIdx] || 'N/A']
+                  });
                 }
                 countRapor++;
+
+                if (batchStatements.length >= BATCH_SIZE) {
+                  setProgress(`Mengunggah Rapor DASMEN... (${countRapor} sekolah)`);
+                  await batch(batchStatements);
+                  batchStatements = [];
+                }
               }
             }
 
@@ -164,13 +192,24 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
                 if (!row || !row[0]) continue;
                 for (const ind of paudIndicators) {
                   const score = parseVal(row[ind.valIdx]);
-                  await run(`
-                    INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                  `, [row[0], row[1], row[2], row[5], 'PAUD', ind.name, score, row[ind.labelIdx] || 'N/A']);
+                  batchStatements.push({
+                    sql: `INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    args: [row[0], row[1], row[2], row[5], 'PAUD', ind.name, score, row[ind.labelIdx] || 'N/A']
+                  });
                 }
                 countRapor++;
+
+                if (batchStatements.length >= BATCH_SIZE) {
+                  setProgress(`Mengunggah Rapor PAUD... (${countRapor} sekolah)`);
+                  await batch(batchStatements);
+                  batchStatements = [];
+                }
               }
+            }
+
+            if (batchStatements.length > 0) {
+              await batch(batchStatements);
             }
           }
 
