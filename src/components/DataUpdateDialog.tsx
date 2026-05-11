@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as XLSX from "xlsx/xlsx.mjs";
-import { getDb, HAMBATAN_COLS, saveDb } from "@/lib/db";
+import { HAMBATAN_COLS, run, saveDb } from "@/lib/db";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   Dialog, 
@@ -39,7 +39,6 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
         try {
           const data = evt.target?.result;
           const workbook = XLSX.read(data, { type: "binary" });
-          const db = await getDb();
           let countSiswa = 0;
           let countRapor = 0;
 
@@ -58,23 +57,13 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
             const sheet = workbook.Sheets[pbsSheetName];
             const rows = XLSX.utils.sheet_to_json(sheet) as any[];
             
-            db.run("DELETE FROM hambatan_siswa");
-            db.run("DELETE FROM siswa");
+            await run("DELETE FROM hambatan_siswa");
+            await run("DELETE FROM siswa");
 
-            const insertSiswa = db.prepare(`
-              INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `);
-
-            const insertHambatan = db.prepare(`
-              INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
-              VALUES (?, ?, ?)
-            `);
-
-            rows.forEach((row, idx) => {
+            for (const [idx, row] of (rows as any[]).entries()) {
               const id = idx + 1;
               const nama = row["Nama Peserta Didik"] || row["Nama Siswa"] || row["Nama"] || row["nama_siswa"];
-              if (!nama) return;
+              if (!nama) continue;
 
               const nisn = row["NISN"] || row["nisn"] || "";
               const sekolah = row["Satuan Pendidikan"] || row["Sekolah"] || row["satuan_pendidikan"] || "";
@@ -83,7 +72,10 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
               const kelas = row["Kelas"] || row["Tingkat Kelas"] || row["tingkat_kelas"] || "";
               const jk = row["Jenis Kelamin"] || row["jenis_kelamin"] || "";
 
-              insertSiswa.run([id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]);
+              await run(`
+                INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `, [id, nama, nisn, sekolah, kecamatan, jenjang, kelas, jk]);
 
               const difficulties: { col: string, val: string }[] = [];
               let totalScore = 0;
@@ -106,15 +98,16 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
               else if (totalScore >= 4) finalCategory = "Sedang";
               else if (totalScore >= 1) finalCategory = "Ringan";
 
-              difficulties.forEach(h => {
+              for (const h of difficulties) {
                 if (totalScore >= 1) {
-                  insertHambatan.run([id, h.col, finalCategory]);
+                  await run(`
+                    INSERT INTO hambatan_siswa (siswa_id, jenis_hambatan, tingkat_hambatan)
+                    VALUES (?, ?, ?)
+                  `, [id, h.col, finalCategory]);
                 }
-              });
+              }
               countSiswa++;
-            });
-            insertSiswa.free();
-            insertHambatan.free();
+            }
           }
 
           // 2. CEK DATA RAPOR PENDIDIKAN (SPM)
@@ -123,13 +116,8 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
 
           if (dasmenSheet || paudSheet) {
             setProgress("Memproses data Rapor Pendidikan (SPM)...");
-            db.run("CREATE TABLE IF NOT EXISTS rapor_spm (npsn TEXT, nama_satuan TEXT, jenis_satuan TEXT, kecamatan TEXT, jenjang TEXT, indikator TEXT, skor REAL, label TEXT)");
-            db.run("DELETE FROM rapor_spm");
-
-            const insertRapor = db.prepare(`
-              INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `);
+            await run("CREATE TABLE IF NOT EXISTS rapor_spm (npsn TEXT, nama_satuan TEXT, jenis_satuan TEXT, kecamatan TEXT, jenjang TEXT, indikator TEXT, skor REAL, label TEXT)");
+            await run("DELETE FROM rapor_spm");
 
             if (dasmenSheet) {
               const data = XLSX.utils.sheet_to_json(workbook.Sheets[dasmenSheet], { header: 1 }) as any[][];
@@ -145,10 +133,13 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
               for (let i = 6; i < data.length; i++) {
                 const row = data[i];
                 if (!row || !row[0]) continue;
-                dasmenIndicators.forEach(ind => {
+                for (const ind of dasmenIndicators) {
                   const score = parseVal(row[ind.valIdx]);
-                  insertRapor.run([row[0], row[1], row[2], row[5], 'DASMEN', ind.name, score, row[ind.labelIdx] || 'N/A']);
-                });
+                  await run(`
+                    INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                  `, [row[0], row[1], row[2], row[5], 'DASMEN', ind.name, score, row[ind.labelIdx] || 'N/A']);
+                }
                 countRapor++;
               }
             }
@@ -171,14 +162,16 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
               for (let i = 6; i < data.length; i++) {
                 const row = data[i];
                 if (!row || !row[0]) continue;
-                paudIndicators.forEach(ind => {
+                for (const ind of paudIndicators) {
                   const score = parseVal(row[ind.valIdx]);
-                  insertRapor.run([row[0], row[1], row[2], row[5], 'PAUD', ind.name, score, row[ind.labelIdx] || 'N/A']);
-                });
+                  await run(`
+                    INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                  `, [row[0], row[1], row[2], row[5], 'PAUD', ind.name, score, row[ind.labelIdx] || 'N/A']);
+                }
                 countRapor++;
               }
             }
-            insertRapor.free();
           }
 
           if (countSiswa === 0 && countRapor === 0) {

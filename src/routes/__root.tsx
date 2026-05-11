@@ -38,8 +38,22 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { useEffect } from "react";
+import { initDb } from "@/lib/db";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    // Inisialisasi tabel di Turso jika belum ada
+    initDb().then(() => {
+      console.log("Database initialized");
+      queryClient.invalidateQueries();
+    }).catch(err => {
+      console.error("Failed to initialize database:", err);
+    });
+  }, [queryClient]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Layout />

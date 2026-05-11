@@ -1,47 +1,89 @@
-import initSqlJs, { type Database } from "sql.js";
+import { createClient } from "@libsql/client";
 
-let dbPromise: Promise<Database> | null = null;
+// Konfigurasi client Turso menggunakan environment variables dari .env
+const client = createClient({
+  url: import.meta.env.VITE_TURSO_DATABASE_URL || "",
+  authToken: import.meta.env.VITE_TURSO_AUTH_TOKEN || "",
+});
 
-const DB_STORE_NAME = "pbs_db_store";
-const DB_KEY = "pbs_binary";
-
-async function getStoredDb(): Promise<Uint8Array | null> {
-  return new Promise((resolve) => {
-    const request = indexedDB.open("PBS_Database", 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(DB_STORE_NAME);
-    request.onsuccess = () => {
-      const db = request.result;
-      const tx = db.transaction(DB_STORE_NAME, "readonly");
-      const store = tx.objectStore(DB_STORE_NAME);
-      const getReq = store.get(DB_KEY);
-      getReq.onsuccess = () => resolve(getReq.result || null);
-      getReq.onerror = () => resolve(null);
-    };
-    request.onerror = () => resolve(null);
-  });
+/**
+ * Fungsi query untuk mengambil banyak baris data
+ */
+export async function query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+  try {
+    const result = await client.execute({
+      sql,
+      args: params
+    });
+    // LibSQL mengembalikan rows sebagai array of objects (jika menggunakan execute)
+    return result.rows as unknown as T[];
+  } catch (error) {
+    console.error("Database Query Error:", error);
+    throw error;
+  }
 }
 
-export async function saveDb() {
-  const db = await getDb();
-  const binary = db.export();
-  return new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open("PBS_Database", 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(DB_STORE_NAME);
-    request.onsuccess = () => {
-      const db = request.result;
-      const tx = db.transaction(DB_STORE_NAME, "readwrite");
-      const store = tx.objectStore(DB_STORE_NAME);
-      store.put(binary, DB_KEY);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    };
-  });
+/**
+ * Fungsi query untuk mengambil satu baris data saja
+ */
+export async function queryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+  const r = await query<T>(sql, params);
+  return r[0] ?? null;
 }
 
-async function ensureAlatBantu(db: Database) {
-  const count = (db.exec("SELECT COUNT(*) as n FROM alat_bantu")[0].values[0][0] as number);
-  if (count === 0) {
-    console.log("Katalog alat bantu kosong, memulihkan data standar...");
+/**
+ * Fungsi untuk menjalankan perintah non-query (INSERT, UPDATE, DELETE)
+ */
+export async function run(sql: string, params: any[] = []) {
+  try {
+    await client.execute({
+      sql,
+      args: params
+    });
+  } catch (error) {
+    console.error("Database Run Error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fungsi pembantu untuk inisialisasi tabel jika belum ada (opsional untuk Turso)
+ * Biasanya schema diatur sekali di awal, tapi kita jaga-jaga di sini.
+ */
+export async function initDb() {
+  await run(`
+    CREATE TABLE IF NOT EXISTS siswa (
+      id INTEGER PRIMARY KEY,
+      nama_siswa TEXT,
+      nisn TEXT,
+      satuan_pendidikan TEXT,
+      kecamatan TEXT,
+      jenjang TEXT,
+      tingkat_kelas TEXT,
+      jenis_kelamin TEXT
+    )
+  `);
+  await run(`
+    CREATE TABLE IF NOT EXISTS hambatan_siswa (
+      siswa_id INTEGER,
+      jenis_hambatan TEXT,
+      tingkat_hambatan TEXT
+    )
+  `);
+  await run(`
+    CREATE TABLE IF NOT EXISTS alat_bantu (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      jenis_hambatan TEXT,
+      nama_alat TEXT,
+      kategori TEXT,
+      deskripsi TEXT
+    )
+  `);
+  
+  // Cek jika katalog alat bantu kosong, isi dengan data default
+  const count = await queryOne<{ n: number }>("SELECT COUNT(*) as n FROM alat_bantu");
+  if (count && count.n === 0) {
+    console.log("Katalog alat bantu kosong di Turso, memulihkan data standar...");
     const tools = [
       ["Kesulitan Penglihatan", "Kacamata Refraksi", "Optik", "Kacamata untuk membantu koreksi penglihatan jarak jauh/dekat."],
       ["Kesulitan Penglihatan", "Magnifier (Kaca Pembesar)", "Optik", "Alat bantu untuk memperbesar tulisan atau objek."],
@@ -65,70 +107,14 @@ async function ensureAlatBantu(db: Database) {
       ["Kesulitan Emosi", "Weighted Blanket", "Terapi", "Selimut pemberat untuk memberikan rasa tenang."],
       ["Kesulitan Emosi", "Visual Timer", "Manajemen", "Alat bantu visual untuk mengelola transisi aktivitas."],
     ];
-    const stmt = db.prepare("INSERT INTO alat_bantu (jenis_hambatan, nama_alat, kategori, deskripsi) VALUES (?, ?, ?, ?)");
-    tools.forEach(t => stmt.run(t));
-    stmt.free();
-    // Jika kita di browser, simpan hasil pemulihan ini
-    if (typeof window !== "undefined") {
-        setTimeout(() => saveDb(), 1000);
+    
+    for (const t of tools) {
+      await run("INSERT INTO alat_bantu (jenis_hambatan, nama_alat, kategori, deskripsi) VALUES (?, ?, ?, ?)", t);
     }
   }
 }
 
-export function getDb(): Promise<Database> {
-  if (!dbPromise) {
-    dbPromise = (async () => {
-      const SQL = await initSqlJs({ locateFile: () => "/sql-wasm.wasm" });
-      try {
-        // Cek penyimpanan lokal dulu
-        const localBuf = await getStoredDb();
-        if (localBuf) {
-          console.log("Memuat database dari penyimpanan lokal...");
-          const db = new SQL.Database(localBuf);
-          await ensureAlatBantu(db);
-          return db;
-        }
-
-        // Jika tidak ada, ambil dari file publik
-        const res = await fetch("/data/pbs.db");
-        if (!res.ok) throw new Error("Gagal memuat file pbs.db");
-        const buf = await res.arrayBuffer();
-        const db = new SQL.Database(new Uint8Array(buf));
-        await ensureAlatBantu(db);
-        return db;
-      } catch (err) {
-        console.warn("Menggunakan database kosong baru...", err);
-        const db = new SQL.Database();
-        // Pastikan tabel ada dulu sebelum diisi
-        db.run("CREATE TABLE IF NOT EXISTS alat_bantu (id INTEGER PRIMARY KEY AUTOINCREMENT, jenis_hambatan TEXT, nama_alat TEXT, kategori TEXT, deskripsi TEXT)");
-        await ensureAlatBantu(db);
-        return db;
-      }
-    })();
-  }
-  return dbPromise;
-}
-
-export async function query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-  const db = await getDb();
-  const stmt = db.prepare(sql);
-  stmt.bind(params as any);
-  const rows: T[] = [];
-  while (stmt.step()) rows.push(stmt.getAsObject() as T);
-  stmt.free();
-  return rows;
-}
-
-export async function queryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
-  const r = await query<T>(sql, params);
-  return r[0] ?? null;
-}
-
-export async function run(sql: string, params: any[] = []) {
-  const db = await getDb();
-  db.run(sql, params);
-}
-
+// Utility untuk format angka
 export const fmt = (n: number | null | undefined) =>
   (n ?? 0).toLocaleString("id-ID");
 
@@ -157,3 +143,13 @@ export const HAMBATAN_SHORT: Record<string, string> = {
   "Kesulitan Atensi": "Atensi",
   "Kesulitan Emosi": "Emosi",
 };
+
+// Fungsi dummy untuk kompatibilitas jika ada yang memanggil saveDb (Turso otomatis autosave)
+export async function saveDb() {
+  return Promise.resolve();
+}
+
+// Fungsi dummy untuk kompatibilitas getDb
+export async function getDb(): Promise<any> {
+  return client;
+}
