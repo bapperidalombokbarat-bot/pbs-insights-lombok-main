@@ -31,28 +31,30 @@ function SPMPage() {
       if (jenjang !== "Semua") { where.push("jenjang=?"); args.push(jenjang); }
       const w = where.length ? "WHERE " + where.join(" AND ") : "";
 
-      const kecList = await query<any>(`SELECT DISTINCT kecamatan FROM rapor_spm ORDER BY kecamatan`);
-      
-      // Get averages per indicator
-      const stats = await query<any>(`
-        SELECT indikator, AVG(skor) as avg_skor, COUNT(*) as count
-        FROM rapor_spm
-        ${w}
-        GROUP BY indikator
-        ORDER BY avg_skor DESC
-      `, args);
+      const [kecList, stats, sekolah] = await Promise.all([
+        query<any>(`SELECT DISTINCT kecamatan FROM rapor_spm ORDER BY kecamatan`),
+        
+        // Get averages per indicator
+        query<any>(`
+          SELECT indikator, AVG(skor) as avg_skor, COUNT(*) as count
+          FROM rapor_spm
+          ${w}
+          GROUP BY indikator
+          ORDER BY avg_skor DESC
+        `, args),
 
-      // Get school list for table sorted by best average score
-      const sekolah = await query<any>(`
-        SELECT npsn, nama_satuan, jenis_satuan, kecamatan, jenjang,
-               AVG(skor) as school_avg,
-               GROUP_CONCAT(indikator || ':' || skor) as raw_scores
-        FROM rapor_spm
-        ${w}
-        GROUP BY npsn, nama_satuan, jenis_satuan, kecamatan, jenjang
-        ORDER BY school_avg DESC
-        LIMIT 500
-      `, args);
+        // Get school list for table sorted by best average score
+        query<any>(`
+          SELECT npsn, nama_satuan, jenis_satuan, kecamatan, jenjang,
+                 AVG(skor) as school_avg,
+                 GROUP_CONCAT(indikator || ':' || skor) as raw_scores
+          FROM rapor_spm
+          ${w}
+          GROUP BY npsn, nama_satuan, jenis_satuan, kecamatan, jenjang
+          ORDER BY school_avg DESC
+          LIMIT 500
+        `, args)
+      ]);
 
       return { kecList, stats, sekolah };
     },

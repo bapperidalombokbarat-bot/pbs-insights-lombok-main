@@ -25,31 +25,33 @@ function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: async () => {
-      const summary = await queryOne<any>(`
-        SELECT
-          (SELECT COUNT(*) FROM siswa) AS total_siswa,
-          (SELECT COUNT(DISTINCT satuan_pendidikan) FROM siswa) AS total_sekolah,
-          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa) AS total_berkebutuhan,
-          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Ringan') AS ringan,
-          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Sedang') AS sedang,
-          (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Berat') AS berat
-      `);
-      const perKec = await query<any>(
-        `SELECT kecamatan, COUNT(*) AS total FROM siswa GROUP BY kecamatan ORDER BY total DESC`
-      );
-      const perJenis = await query<any>(
-        `SELECT jenis_hambatan, COUNT(DISTINCT siswa_id) AS total FROM hambatan_siswa GROUP BY jenis_hambatan ORDER BY total DESC`
-      );
-      const perJenjang = await query<any>(
-        `SELECT jenjang, COUNT(*) AS total FROM siswa GROUP BY jenjang`
-      );
-      const kelamin = await query<any>(`
-        SELECT s.jenis_kelamin AS k,
-          COUNT(DISTINCT s.id) AS total,
-          COUNT(DISTINCT h.siswa_id) AS berkebutuhan
-        FROM siswa s LEFT JOIN hambatan_siswa h ON h.siswa_id=s.id
-        GROUP BY s.jenis_kelamin
-      `);
+      const [summary, perKec, perJenis, perJenjang, kelamin] = await Promise.all([
+        queryOne<any>(`
+          SELECT
+            (SELECT COUNT(*) FROM siswa) AS total_siswa,
+            (SELECT COUNT(DISTINCT satuan_pendidikan) FROM siswa) AS total_sekolah,
+            (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa) AS total_berkebutuhan,
+            (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Ringan') AS ringan,
+            (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Sedang') AS sedang,
+            (SELECT COUNT(DISTINCT siswa_id) FROM hambatan_siswa WHERE tingkat_hambatan='Berat') AS berat
+        `),
+        query<any>(
+          `SELECT kecamatan, COUNT(*) AS total FROM siswa GROUP BY kecamatan ORDER BY total DESC`
+        ),
+        query<any>(
+          `SELECT jenis_hambatan, COUNT(DISTINCT siswa_id) AS total FROM hambatan_siswa GROUP BY jenis_hambatan ORDER BY total DESC`
+        ),
+        query<any>(
+          `SELECT jenjang, COUNT(*) AS total FROM siswa GROUP BY jenjang`
+        ),
+        query<any>(`
+          SELECT s.jenis_kelamin AS k,
+            COUNT(DISTINCT s.id) AS total,
+            COUNT(DISTINCT h.siswa_id) AS berkebutuhan
+          FROM siswa s LEFT JOIN hambatan_siswa h ON h.siswa_id=s.id
+          GROUP BY s.jenis_kelamin
+        `)
+      ]);
       return { summary, perKec, perJenis, perJenjang, kelamin };
     },
   });

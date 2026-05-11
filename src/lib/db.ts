@@ -79,6 +79,29 @@ export async function initDb() {
       deskripsi TEXT
     )
   `);
+
+  // Tabel untuk Rapor Pendidikan / SPM
+  await run(`
+    CREATE TABLE IF NOT EXISTS rapor_spm (
+      npsn TEXT, 
+      nama_satuan TEXT, 
+      jenis_satuan TEXT, 
+      kecamatan TEXT, 
+      jenjang TEXT, 
+      indikator TEXT, 
+      skor REAL, 
+      label TEXT
+    )
+  `);
+
+  // Tambahkan Index untuk mempercepat query filtering dan grouping di Cloudflare/Turso
+  await run(`CREATE INDEX IF NOT EXISTS idx_siswa_kecamatan ON siswa(kecamatan)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_siswa_jenjang ON siswa(jenjang)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_hambatan_siswa_id ON hambatan_siswa(siswa_id)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_rapor_kecamatan ON rapor_spm(kecamatan)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_rapor_jenjang ON rapor_spm(jenjang)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_rapor_npsn ON rapor_spm(npsn)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_rapor_indikator ON rapor_spm(indikator)`);
   
   // Cek jika katalog alat bantu kosong, isi dengan data default
   const count = await queryOne<{ n: number }>("SELECT COUNT(*) as n FROM alat_bantu");
