@@ -18,7 +18,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ["react", "react-dom", "recharts", "xlsx"],
+          // Hanya memisahkan library pihak ketiga yang besar
+          vendor: ["recharts", "xlsx"],
         },
       },
     },
