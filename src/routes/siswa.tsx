@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
+import * as XLSX from "xlsx/xlsx.mjs";
 
 export const Route = createFileRoute("/siswa")({
   head: () => ({ meta: [{ title: "PBS Dashboard | Data Siswa | Lombok Barat" }] }),
@@ -65,6 +66,36 @@ function SiswaPage() {
 
   const pages = data ? Math.max(1, Math.ceil(data.total / perPage)) : 1;
 
+  const exportExcel = async () => {
+    try {
+      const all = await query<any>(`
+        SELECT 
+          s.nama_siswa as 'Nama Siswa', 
+          s.nisn as 'NISN', 
+          s.satuan_pendidikan as 'Sekolah', 
+          s.kecamatan as 'Kecamatan', 
+          s.tingkat_kelas as 'Kelas', 
+          s.jenis_kelamin as 'JK',
+          h.jenis_hambatan as 'Jenis Hambatan', 
+          h.tingkat_hambatan as 'Klasifikasi Hambatan',
+          (SELECT GROUP_CONCAT(nama_alat, ', ') FROM alat_bantu WHERE jenis_hambatan = h.jenis_hambatan) as 'Tipe Alat Bantu'
+        FROM siswa s
+        LEFT JOIN hambatan_siswa h ON s.id = h.siswa_id
+        ${filterSql.w}
+        ORDER BY s.nama_siswa
+      `, filterSql.args);
+
+      const worksheet = XLSX.utils.json_to_sheet(all);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Siswa PBS");
+      
+      XLSX.writeFile(workbook, `data-siswa-pbs-lombok-barat.xlsx`);
+    } catch (error) {
+      console.error("Gagal export excel:", error);
+      alert("Terjadi kesalahan saat mengekspor data.");
+    }
+  };
+
   const exportCsv = async () => {
     const all = await query<any>(`
       SELECT s.id, s.nama_siswa, s.nisn, s.satuan_pendidikan, s.kecamatan, s.jenjang, s.tingkat_kelas, s.jenis_kelamin
@@ -94,7 +125,12 @@ function SiswaPage() {
           <h2 className="text-2xl font-bold">Data Siswa</h2>
           <p className="text-sm text-muted-foreground mt-1">{data ? `${fmt(data.total)} siswa` : "Memuat…"}</p>
         </div>
-        <button onClick={exportCsv} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">⬇ Export CSV</button>
+        <div className="flex gap-2">
+          <button onClick={exportExcel} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2">
+            📊 Export Excel
+          </button>
+          <button onClick={exportCsv} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">⬇ Export CSV</button>
+        </div>
       </div>
 
       <div className="chart-card grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
