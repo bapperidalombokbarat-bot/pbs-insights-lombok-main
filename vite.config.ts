@@ -15,13 +15,5 @@ export default defineConfig({
   ],
   build: {
     chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Hanya memisahkan library pihak ketiga yang besar
-          vendor: ["recharts", "xlsx"],
-        },
-      },
-    },
   },
 });
