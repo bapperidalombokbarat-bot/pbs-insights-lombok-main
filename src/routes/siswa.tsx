@@ -236,13 +236,6 @@ function SiswaPage() {
                       <td className="px-2 py-2">
                         <div className="flex items-center gap-2">
                           <button onClick={()=>openDetail(r)} className="text-xs text-primary hover:underline">Detail</button>
-                          <button 
-                            onClick={handleToggleUnlock} 
-                            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                            title={isAllUnlocked ? "Samarkan semua nama & NISN" : "Tampilkan semua nama & NISN"}
-                          >
-                            {isAllUnlocked ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -274,13 +267,6 @@ function SiswaPage() {
                   <h3 className="text-xl font-bold">
                     {maskName(detail.s.nama_siswa, isAllUnlocked)}
                   </h3>
-                  <button 
-                    onClick={handleToggleUnlock} 
-                    className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                    title={isAllUnlocked ? "Samarkan semua nama & NISN" : "Tampilkan semua nama & NISN"}
-                  >
-                    {isAllUnlocked ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   NISN: {isAllUnlocked 
