@@ -245,9 +245,9 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Update Data PBS (Lokal)</DialogTitle>
+          <DialogTitle>Update Data PBS (Online)</DialogTitle>
           <DialogDescription>
-            Upload file Excel untuk memproses data di memori browser.
+            Upload file Excel untuk menyinkronkan data langsung ke database online.
           </DialogDescription>
         </DialogHeader>
 
@@ -282,7 +282,7 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
             <div className="flex flex-col items-center text-center px-6">
               <CheckCircle2 className="w-12 h-12 text-green-500 mb-4" />
               <p className="text-sm font-bold text-green-600 mb-1">Berhasil!</p>
-              <p className="text-xs text-muted-foreground mb-4">Data di browser telah diperbarui.</p>
+              <p className="text-xs text-muted-foreground mb-4">Data di database online telah diperbarui.</p>
               <Button onClick={() => onOpenChange(false)}>Tutup</Button>
             </div>
           )}
