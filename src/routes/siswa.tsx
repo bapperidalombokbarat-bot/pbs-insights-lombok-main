@@ -3,6 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import * as XLSX from "xlsx/xlsx.mjs";
+import { Eye, EyeOff } from "lucide-react";
+
+const maskName = (name: string, unlocked: boolean) => {
+  if (unlocked || !name) return name;
+  return name
+    .split(" ")
+    .map((word) => {
+      if (!word) return "";
+      return word[0] + "*".repeat(word.length - 1);
+    })
+    .join(" ");
+};
 
 export const Route = createFileRoute("/siswa")({
   head: () => ({ meta: [{ title: "PBS Dashboard | Data Siswa | Lombok Barat" }] }),
@@ -18,6 +30,20 @@ function SiswaPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const [detail, setDetail] = useState<any>(null);
+  const [isAllUnlocked, setIsAllUnlocked] = useState(false);
+
+  const handleToggleUnlock = () => {
+    if (isAllUnlocked) {
+      setIsAllUnlocked(false);
+    } else {
+      const pwd = prompt("Masukkan password untuk membuka data semua siswa:");
+      if (pwd === "17041958") {
+        setIsAllUnlocked(true);
+      } else if (pwd !== null) {
+        alert("Password salah!");
+      }
+    }
+  };
 
   const { data: kecList } = useQuery({
     queryKey: ["kec-list"],
@@ -156,7 +182,18 @@ function SiswaPage() {
               <thead className="bg-muted text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="text-left px-2 py-2">No</th>
-                  <th className="text-left px-2 py-2">Nama Siswa</th>
+                  <th className="text-left px-2 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <span>Nama Siswa</span>
+                      <button 
+                        onClick={handleToggleUnlock}
+                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors inline-flex items-center"
+                        title={isAllUnlocked ? "Samarkan semua nama & NISN" : "Tampilkan semua nama & NISN"}
+                      >
+                        {isAllUnlocked ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </th>
                   <th className="text-left px-2 py-2">NISN</th>
                   <th className="text-left px-2 py-2">Sekolah</th>
                   <th className="text-left px-2 py-2">Kecamatan</th>
@@ -169,13 +206,18 @@ function SiswaPage() {
               </thead>
               <tbody>
                 {data?.rows.length === 0 && <tr><td colSpan={10} className="text-center py-12 text-muted-foreground">Data tidak ditemukan</td></tr>}
-                {data?.rows.map((r: any, i: number) => {
+                 {data?.rows.map((r: any, i: number) => {
                   const hs = data.hambMap.get(r.id) || [];
+                  const nama = r.nama_siswa || "";
+                  const nisn = r.nisn || "";
+                  const maskedNama = maskName(nama, isAllUnlocked);
+                  const maskedNisn = isAllUnlocked ? nisn : "*".repeat(nisn.length || 10);
+
                   return (
                     <tr key={r.id} className="border-t border-border hover:bg-muted/40">
                       <td className="px-2 py-2 text-muted-foreground">{(page-1)*perPage + i + 1}</td>
-                      <td className="px-2 py-2 font-medium">{r.nama_siswa}</td>
-                      <td className="px-2 py-2 text-xs text-muted-foreground">{r.nisn}</td>
+                      <td className="px-2 py-2 font-medium">{maskedNama}</td>
+                      <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{maskedNisn}</td>
                       <td className="px-2 py-2">{r.satuan_pendidikan}</td>
                       <td className="px-2 py-2">{r.kecamatan}</td>
                       <td className="px-2 py-2"><span className="badge-pill" style={{background:'#dbeafe',color:'#1e40af'}}>{r.jenjang}</span></td>
@@ -191,7 +233,18 @@ function SiswaPage() {
                           ))}
                         </div>
                       </td>
-                      <td className="px-2 py-2"><button onClick={()=>openDetail(r)} className="text-xs text-primary hover:underline">Detail</button></td>
+                      <td className="px-2 py-2">
+                        <div className="flex items-center gap-2">
+                          <button onClick={()=>openDetail(r)} className="text-xs text-primary hover:underline">Detail</button>
+                          <button 
+                            onClick={handleToggleUnlock} 
+                            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                            title={isAllUnlocked ? "Samarkan semua nama & NISN" : "Tampilkan semua nama & NISN"}
+                          >
+                            {isAllUnlocked ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -216,11 +269,27 @@ function SiswaPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={()=>setDetail(null)}>
           <div className="bg-card rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e)=>e.stopPropagation()}>
             <div className="p-6 border-b border-border flex items-start justify-between">
-              <div>
-                <h3 className="text-xl font-bold">{detail.s.nama_siswa}</h3>
-                <p className="text-sm text-muted-foreground">NISN: {detail.s.nisn}</p>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-bold">
+                    {maskName(detail.s.nama_siswa, isAllUnlocked)}
+                  </h3>
+                  <button 
+                    onClick={handleToggleUnlock} 
+                    className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    title={isAllUnlocked ? "Samarkan semua nama & NISN" : "Tampilkan semua nama & NISN"}
+                  >
+                    {isAllUnlocked ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  NISN: {isAllUnlocked 
+                    ? detail.s.nisn 
+                    : "*".repeat((detail.s.nisn || "").length || 10)
+                  }
+                </p>
               </div>
-              <button onClick={()=>setDetail(null)} className="text-2xl text-muted-foreground hover:text-foreground">×</button>
+              <button onClick={()=>setDetail(null)} className="text-2xl text-muted-foreground hover:text-foreground ml-4">×</button>
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">

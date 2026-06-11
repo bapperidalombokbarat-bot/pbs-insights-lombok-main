@@ -8,7 +8,7 @@ import {
 } from "recharts";
 
 export const Route = createFileRoute("/kecamatan")({
-  head: () => ({ meta: [{ title: "PBS Dashboard | Per Kecamatan | Lombok Barat" }] }),
+  head: () => ({ meta: [{ title: "PBS Dashboard | Analis per Kecamatan | Lombok Barat" }] }),
   component: KecamatanPage,
 });
 
@@ -93,7 +93,7 @@ function KecamatanPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Analisa Per Kecamatan</h2>
+        <h2 className="text-2xl font-bold">Analis per Kecamatan</h2>
         <p className="text-sm text-muted-foreground mt-1">Filter dan bandingkan data antar kecamatan</p>
       </div>
 

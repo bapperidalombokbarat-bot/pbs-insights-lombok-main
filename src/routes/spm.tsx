@@ -12,7 +12,7 @@ import {
 } from "recharts";
 
 export const Route = createFileRoute("/spm")({
-  head: () => ({ meta: [{ title: "PBS Dashboard | Capaian SPM | Lombok Barat" }] }),
+  head: () => ({ meta: [{ title: "PBS Dashboard | Rapor Pendidikan | Lombok Barat" }] }),
   component: SPMPage,
 });
 
@@ -106,7 +106,7 @@ function SPMPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Capaian Standar Pelayanan Minimal (SPM)</h2>
+          <h2 className="text-2xl font-bold text-foreground">Rapor Pendidikan</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Analisis indikator Rapor Pendidikan Kabupaten Lombok Barat 2025
           </p>
@@ -344,7 +344,7 @@ function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground space-y-4">
       <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      <div className="text-sm font-bold animate-pulse">Menganalisis Indikator SPM...</div>
+      <div className="text-sm font-bold animate-pulse">Menganalisis Indikator Rapor Pendidikan...</div>
     </div>
   );
 }

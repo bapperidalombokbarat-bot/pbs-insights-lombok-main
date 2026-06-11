@@ -1,21 +1,27 @@
 import { createClient } from "@libsql/client";
+import { createServerFn } from "@tanstack/react-start";
 
-// Konfigurasi client Turso menggunakan environment variables dari .env
-const client = createClient({
-  url: import.meta.env.VITE_TURSO_DATABASE_URL || "",
-  authToken: import.meta.env.VITE_TURSO_AUTH_TOKEN || "",
-});
+// Instansiasi database client secara lazy hanya pada server-side
+let _client: any = null;
+function getLibsqlClient() {
+  if (!_client) {
+    _client = createClient({
+      url: import.meta.env.VITE_TURSO_DATABASE_URL || "file:local.db",
+      authToken: import.meta.env.VITE_TURSO_AUTH_TOKEN || "",
+    });
+  }
+  return _client;
+}
 
-/**
- * Fungsi query untuk mengambil banyak baris data
- */
-export async function query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+// === FUNGSI EKSEKUSI DATABASE LANGSUNG (SERVER ONLY) ===
+
+async function queryDirect<T = any>(sql: string, params: any[] = []): Promise<T[]> {
   try {
+    const client = getLibsqlClient();
     const result = await client.execute({
       sql,
       args: params
     });
-    // LibSQL mengembalikan rows sebagai array of objects (jika menggunakan execute)
     return result.rows as unknown as T[];
   } catch (error) {
     console.error("Database Query Error:", error);
@@ -23,19 +29,14 @@ export async function query<T = any>(sql: string, params: any[] = []): Promise<T
   }
 }
 
-/**
- * Fungsi query untuk mengambil satu baris data saja
- */
-export async function queryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
-  const r = await query<T>(sql, params);
+async function queryOneDirect<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+  const r = await queryDirect<T>(sql, params);
   return r[0] ?? null;
 }
 
-/**
- * Fungsi untuk menjalankan perintah non-query (INSERT, UPDATE, DELETE)
- */
-export async function run(sql: string, params: any[] = []) {
+async function runDirect(sql: string, params: any[] = []) {
   try {
+    const client = getLibsqlClient();
     await client.execute({
       sql,
       args: params
@@ -46,12 +47,9 @@ export async function run(sql: string, params: any[] = []) {
   }
 }
 
-/**
- * Fungsi untuk menjalankan banyak perintah sekaligus dalam satu transaksi (Batching)
- * Sangat penting untuk performa saat insert data dalam jumlah besar ke Turso.
- */
-export async function batch(statements: { sql: string, args: any[] }[]) {
+async function batchDirect(statements: { sql: string, args: any[] }[]) {
   try {
+    const client = getLibsqlClient();
     await client.batch(statements, "write");
   } catch (error) {
     console.error("Database Batch Error:", error);
@@ -59,12 +57,8 @@ export async function batch(statements: { sql: string, args: any[] }[]) {
   }
 }
 
-/**
- * Fungsi pembantu untuk inisialisasi tabel jika belum ada (opsional untuk Turso)
- * Biasanya schema diatur sekali di awal, tapi kita jaga-jaga di sini.
- */
-export async function initDb() {
-  await run(`
+async function initDbDirect() {
+  await runDirect(`
     CREATE TABLE IF NOT EXISTS siswa (
       id INTEGER PRIMARY KEY,
       nama_siswa TEXT,
@@ -76,14 +70,14 @@ export async function initDb() {
       jenis_kelamin TEXT
     )
   `);
-  await run(`
+  await runDirect(`
     CREATE TABLE IF NOT EXISTS hambatan_siswa (
       siswa_id INTEGER,
       jenis_hambatan TEXT,
       tingkat_hambatan TEXT
     )
   `);
-  await run(`
+  await runDirect(`
     CREATE TABLE IF NOT EXISTS alat_bantu (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       jenis_hambatan TEXT,
@@ -92,9 +86,7 @@ export async function initDb() {
       deskripsi TEXT
     )
   `);
-
-  // Tabel untuk Rapor Pendidikan / SPM
-  await run(`
+  await runDirect(`
     CREATE TABLE IF NOT EXISTS rapor_spm (
       npsn TEXT, 
       nama_satuan TEXT, 
@@ -107,17 +99,15 @@ export async function initDb() {
     )
   `);
 
-  // Tambahkan Index untuk mempercepat query filtering dan grouping di Cloudflare/Turso
-  await run(`CREATE INDEX IF NOT EXISTS idx_siswa_kecamatan ON siswa(kecamatan)`);
-  await run(`CREATE INDEX IF NOT EXISTS idx_siswa_jenjang ON siswa(jenjang)`);
-  await run(`CREATE INDEX IF NOT EXISTS idx_hambatan_siswa_id ON hambatan_siswa(siswa_id)`);
-  await run(`CREATE INDEX IF NOT EXISTS idx_rapor_kecamatan ON rapor_spm(kecamatan)`);
-  await run(`CREATE INDEX IF NOT EXISTS idx_rapor_jenjang ON rapor_spm(jenjang)`);
-  await run(`CREATE INDEX IF NOT EXISTS idx_rapor_npsn ON rapor_spm(npsn)`);
-  await run(`CREATE INDEX IF NOT EXISTS idx_rapor_indikator ON rapor_spm(indikator)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_siswa_kecamatan ON siswa(kecamatan)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_siswa_jenjang ON siswa(jenjang)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_hambatan_siswa_id ON hambatan_siswa(siswa_id)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_rapor_kecamatan ON rapor_spm(kecamatan)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_rapor_jenjang ON rapor_spm(jenjang)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_rapor_npsn ON rapor_spm(npsn)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_rapor_indikator ON rapor_spm(indikator)`);
   
-  // Cek jika katalog alat bantu kosong, isi dengan data default
-  const count = await queryOne<{ n: number }>("SELECT COUNT(*) as n FROM alat_bantu");
+  const count = await queryOneDirect<{ n: number }>("SELECT COUNT(*) as n FROM alat_bantu");
   if (count && count.n === 0) {
     console.log("Katalog alat bantu kosong di Turso, memulihkan data standar...");
     const tools = [
@@ -145,9 +135,70 @@ export async function initDb() {
     ];
     
     for (const t of tools) {
-      await run("INSERT INTO alat_bantu (jenis_hambatan, nama_alat, kategori, deskripsi) VALUES (?, ?, ?, ?)", t);
+      await runDirect("INSERT INTO alat_bantu (jenis_hambatan, nama_alat, kategori, deskripsi) VALUES (?, ?, ?, ?)", t);
     }
   }
+}
+
+// === TANSTACK START SERVER RPC DEFINITIONS ===
+
+const serverQuery = createServerFn({ method: "POST" })
+  .handler(async ({ data }: { data: { sql: string; params: any[] } }) => {
+    return await queryDirect(data.sql, data.params);
+  });
+
+const serverRun = createServerFn({ method: "POST" })
+  .handler(async ({ data }: { data: { sql: string; params: any[] } }) => {
+    await runDirect(data.sql, data.params);
+  });
+
+const serverBatch = createServerFn({ method: "POST" })
+  .handler(async ({ data }: { data: { statements: { sql: string; args: any[] }[] } }) => {
+    await batchDirect(data.statements);
+  });
+
+const serverInitDb = createServerFn({ method: "POST" })
+  .handler(async () => {
+    await initDbDirect();
+  });
+
+// === EXPORTED API FOR THE APP (SEAMLESSLY CALLABLE FROM BOTH SERVER AND BROWSER) ===
+
+/**
+ * Fungsi query untuk mengambil banyak baris data
+ */
+export async function query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+  const result = await serverQuery({ data: { sql, params } });
+  return result as T[];
+}
+
+/**
+ * Fungsi query untuk mengambil satu baris data saja
+ */
+export async function queryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+  const r = await query<T>(sql, params);
+  return r[0] ?? null;
+}
+
+/**
+ * Fungsi untuk menjalankan perintah non-query (INSERT, UPDATE, DELETE)
+ */
+export async function run(sql: string, params: any[] = []) {
+  await serverRun({ data: { sql, params } });
+}
+
+/**
+ * Fungsi untuk menjalankan banyak perintah sekaligus dalam satu transaksi (Batching)
+ */
+export async function batch(statements: { sql: string, args: any[] }[]) {
+  await serverBatch({ data: { statements } });
+}
+
+/**
+ * Fungsi pembantu untuk inisialisasi tabel jika belum ada
+ */
+export async function initDb() {
+  await serverInitDb();
 }
 
 // Utility untuk format angka
@@ -187,5 +238,8 @@ export async function saveDb() {
 
 // Fungsi dummy untuk kompatibilitas getDb
 export async function getDb(): Promise<any> {
-  return client;
+  if (typeof window === "undefined") {
+    return getLibsqlClient();
+  }
+  return null;
 }
