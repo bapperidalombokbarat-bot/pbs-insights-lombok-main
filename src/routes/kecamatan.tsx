@@ -174,7 +174,7 @@ function KecamatanPage() {
 
       <div className="chart-card">
         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <h3 className="!mb-0">Ringkasan Sekolah ({fmt(filteredSekolah.length)})</h3>
+          <h3 className="!mb-0">Ringkasan Sekolah</h3>
           <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama sekolah…" className="border border-border bg-background rounded-lg px-3 py-2 text-sm min-w-[240px]" />
         </div>
         <div className="overflow-x-auto">
