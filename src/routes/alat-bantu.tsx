@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useYear } from "@/lib/YearContext";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
 
@@ -48,9 +49,14 @@ const NAME_IMG: Record<string, string> = {
 };
 
 function AlatBantuPage() {
+  const { selectedYear } = useYear();
   const { data, isLoading } = useQuery({
-    queryKey: ["alat-bantu"],
+    queryKey: ["alat-bantu", selectedYear],
     queryFn: async () => {
+      if (selectedYear !== "2026") {
+        return { totalSiswa: 0, kebutuhan: [] };
+      }
+
       const perHambatan = await query<any>(`
         SELECT jenis_hambatan,
           COUNT(DISTINCT CASE WHEN tingkat_hambatan='Ringan' THEN siswa_id END) AS ringan,

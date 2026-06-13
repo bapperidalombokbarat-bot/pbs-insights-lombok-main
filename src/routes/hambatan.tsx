@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useYear } from "@/lib/YearContext";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
 import { HAMBATAN_INFO } from "@/lib/hambatan-info";
@@ -67,9 +68,14 @@ const RadarCustomTooltip = ({ active, payload }: any) => {
 
 function HambatanPage() {
   const [tingkat, setTingkat] = useState("Semua");
+  const { selectedYear } = useYear();
+  
   const { data, isLoading } = useQuery({
-    queryKey: ["hambatan", tingkat],
+    queryKey: ["hambatan", tingkat, selectedYear],
     queryFn: async () => {
+      if (selectedYear !== "2026") {
+        return { trend: [], kelamin: [], byTingkat: [], byJenis: [], list: [] };
+      }
       const w = tingkat !== "Semua" ? "WHERE tingkat_hambatan=?" : "";
       const a = tingkat !== "Semua" ? [tingkat] : [];
       const summary = (await query<any>(`

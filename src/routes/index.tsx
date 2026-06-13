@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useYear } from "@/lib/YearContext";
 import { query, queryOne, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -23,10 +24,20 @@ const COLORS = {
 function DashboardPage() {
   const [showDarurat, setShowDarurat] = useState(false);
   const [showTren, setShowTren] = useState(false);
+  const { selectedYear } = useYear();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["dashboard-summary"],
+    queryKey: ["dashboard-summary", selectedYear],
     queryFn: async () => {
+      if (selectedYear !== "2026") {
+        return { 
+          summary: { total_siswa: 0, total_sekolah: 0, total_sekolah_rapor: 0, total_berkebutuhan: 0, ringan: 0, sedang: 0, berat: 0 }, 
+          perKec: [], perJenis: [], perJenjang: [], kelamin: [], 
+          darurat: { total_darurat: 0 }, daruratList: [], 
+          spmSummary: { avg_delta: 0 }, trenList: [], rekomendasiAlat: [] 
+        };
+      }
+      
       const [summary, perKec, perJenis, perJenjang, kelamin, darurat, daruratList, spmSummary, trenList, rekomendasiAlat] = await Promise.all([
         queryOne<any>(`
           SELECT

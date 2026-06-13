@@ -6,6 +6,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import Layout from "@/components/Layout";
+import { YearProvider } from "@/lib/YearContext";
 
 import appCss from "../styles.css?url";
 
@@ -56,7 +57,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Layout />
+      <YearProvider>
+        <Layout />
+      </YearProvider>
     </QueryClientProvider>
   );
 }

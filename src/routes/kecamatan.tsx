@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useYear } from "@/lib/YearContext";
 import { query, fmt, HAMBATAN_COLS, HAMBATAN_SHORT } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
 import {
@@ -16,10 +17,15 @@ function KecamatanPage() {
   const [kec, setKec] = useState<string>("Semua");
   const [jenjang, setJenjang] = useState<string>("Semua");
   const [drillDown, setDrillDown] = useState<{kec: string, hambatan: string, total: number} | null>(null);
+  const { selectedYear } = useYear();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["kecamatan", kec, jenjang],
+    queryKey: ["kecamatan", kec, jenjang, selectedYear],
     queryFn: async () => {
+      if (selectedYear !== "2026") {
+        return { kecList: [], summary: [{total_siswa:0, total_sekolah:0, berkebutuhan:0}], perKec: [], sekolah: [] };
+      }
+      
       const where: string[] = []; const args: any[] = [];
       if (kec !== "Semua") { where.push("s.kecamatan=?"); args.push(kec); }
       if (jenjang !== "Semua") { where.push("s.jenjang=?"); args.push(jenjang); }

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useYear } from "@/lib/YearContext";
 import { query, fmt } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
 import { 
@@ -17,10 +18,15 @@ function SPMPage() {
   const [kec, setKec] = useState<string>("Semua");
   const [jenjang, setJenjang] = useState<string>("Semua");
   const [selectedSekolah, setSelectedSekolah] = useState<any>(null);
+  const { selectedYear } = useYear();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["spm-data", kec, jenjang],
+    queryKey: ["spm-data", kec, jenjang, selectedYear],
     queryFn: async () => {
+      if (selectedYear !== "2026") {
+        return { total: 0, rataDelta: 0, distribusi: [], domainData: [], list: [] };
+      }
+      
       const where: string[] = []; 
       const args: any[] = [];
       

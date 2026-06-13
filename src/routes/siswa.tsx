@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useYear } from "@/lib/YearContext";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import * as XLSX from "xlsx/xlsx.mjs";
 import { Eye, EyeOff } from "lucide-react";
@@ -31,6 +32,7 @@ function SiswaPage() {
   const [perPage, setPerPage] = useState(25);
   const [detail, setDetail] = useState<any>(null);
   const [isAllUnlocked, setIsAllUnlocked] = useState(false);
+  const { selectedYear } = useYear();
 
   const handleToggleUnlock = () => {
     if (isAllUnlocked) {
@@ -69,8 +71,12 @@ function SiswaPage() {
   }, [q, kec, jenjang, kelamin, tingkat]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["siswa", filterSql, page, perPage],
+    queryKey: ["siswa", filterSql, page, perPage, selectedYear],
     queryFn: async () => {
+      if (selectedYear !== "2026") {
+        return { data: [], total: 0 };
+      }
+
       const total = (await query<any>(`SELECT COUNT(*) AS n FROM siswa s ${filterSql.w}`, filterSql.args))[0].n;
       const rows = await query<any>(`
         SELECT s.* FROM siswa s ${filterSql.w}

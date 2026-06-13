@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet } from "@tanstack/react-router";
+import { useYear } from "@/lib/YearContext";
 import logo from "@/assets/logo-lobar.png";
 import logoKemdikbud from "@/assets/logo-kemdikbud.png";
 import { NavigationFAB } from "./NavigationFAB";
@@ -8,6 +9,7 @@ import { Intro } from "./Intro";
 
 export default function Layout() {
   const [showIntro, setShowIntro] = useState(true);
+  const { selectedYear, setSelectedYear } = useYear();
 
   useEffect(() => {
     const hasSeenIntro = sessionStorage.getItem("pbs_has_seen_intro");
@@ -47,8 +49,18 @@ export default function Layout() {
         </div>
         <div className="flex items-center gap-4">
           <img src={logoKemdikbud} alt="Logo Kemendikdasmen" className="w-10 h-10 md:w-14 md:h-14 object-contain drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] hidden sm:block" />
-          <div className="hidden sm:block px-5 py-2 bg-white/10 text-white border border-white/20 rounded-full backdrop-blur-sm text-xs font-bold">
-            KEMENDIKDASMEN 2026
+          <div className="hidden sm:flex items-center bg-white/10 text-white border border-white/20 rounded-full backdrop-blur-sm px-1">
+            <span className="text-[10px] md:text-xs font-bold pl-3 pr-2 py-2">KEMENDIKDASMEN</span>
+            <select 
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="bg-white/20 hover:bg-white/30 transition-colors border-none text-xs font-black outline-none cursor-pointer rounded-full px-3 py-1 mr-0.5 text-white shadow-inner appearance-none text-center"
+              style={{ backgroundImage: "none" }}
+            >
+              {[2026, 2027, 2028, 2029, 2030].map(y => (
+                <option key={y} value={y} className="text-foreground bg-background">{y}</option>
+              ))}
+            </select>
           </div>
           <ThemeToggle />
         </div>
