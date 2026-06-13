@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet } from "@tanstack/react-router";
 import logo from "@/assets/logo-lobar.png";
+import logoKemdikbud from "@/assets/logo-kemdikbud.png";
 import { NavigationFAB } from "./NavigationFAB";
 import { ThemeToggle } from "./ThemeToggle";
 import { Intro } from "./Intro";
@@ -27,27 +28,33 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
       <header 
-        className="fixed top-0 left-0 right-0 h-16 z-30 flex items-center justify-between px-6 md:px-12 shadow-lg"
+        className="fixed top-0 left-0 right-0 pt-8 pb-4 z-30 flex items-center justify-between px-6 md:px-12 shadow-lg"
         style={{ background: "linear-gradient(90deg, oklch(0.28 0.07 260) 0%, oklch(0.42 0.16 260) 100%)" }}
       >
-        <div className="flex items-center gap-4">
-          <img src={logo} alt="Logo Lombok Barat" className="w-10 h-10 object-contain bg-white/95 rounded-lg p-1 shadow-inner" />
+        <div className="flex items-center gap-4 md:gap-5">
+          <img src={logo} alt="Logo Lombok Barat" className="w-16 h-16 md:w-20 md:h-20 object-contain bg-white/95 rounded-2xl p-2 shadow-inner" />
           <div className="text-white">
-            <h1 className="text-sm md:text-base font-bold leading-tight">
-              PBS Dashboard
+            <h1 className="text-xl md:text-3xl font-black leading-tight tracking-wider">
+              PEDULI
             </h1>
-            <p className="text-[10px] md:text-xs text-white/60 font-medium uppercase tracking-wider">Kabupaten Lombok Barat · NTB</p>
+            <p className="text-[10px] md:text-xs text-white/80 font-medium tracking-wide leading-snug mt-1 mb-1.5">
+              Sistem Data <span className="text-white font-black text-[11px] md:text-sm">PE</span>serta <span className="text-white font-black text-[11px] md:text-sm">D</span>idik Inkl<span className="text-white font-black text-[11px] md:text-sm">U</span>si <br className="md:hidden" /> <span className="text-white font-black text-[11px] md:text-sm">L</span>ombok Barat <span className="text-white font-black text-[11px] md:text-sm">I</span>nteraktif
+            </p>
+            <p className="text-[10px] md:text-xs text-white font-bold uppercase tracking-widest pt-1 border-t border-white/20 inline-block">
+              Kabupaten Lombok Barat
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-[10px] md:text-xs font-bold px-4 py-1.5 bg-white/10 text-white border border-white/20 rounded-full hidden sm:block backdrop-blur-sm">
+          <img src={logoKemdikbud} alt="Logo Kemendikdasmen" className="w-10 h-10 md:w-14 md:h-14 object-contain drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] hidden sm:block" />
+          <div className="hidden sm:block px-5 py-2 bg-white/10 text-white border border-white/20 rounded-full backdrop-blur-sm text-xs font-bold">
             KEMENDIKDASMEN 2026
           </div>
           <ThemeToggle />
         </div>
       </header>
 
-      <main className="pt-16 min-h-screen">
+      <main className="pt-32 md:pt-[200px] min-h-screen">
         <div className="max-w-7xl mx-auto p-4 md:p-8">
           <Outlet />
         </div>
@@ -58,7 +65,7 @@ export default function Layout() {
       <footer className="py-8 px-6 text-center text-[11px] text-muted-foreground border-t border-border mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-foreground/70 tracking-tighter text-lg italic">PBS INSIGHTS</span>
+            <span className="font-bold text-foreground/70 tracking-tighter text-lg italic">PEDULI</span>
             <span className="w-1.5 h-1.5 rounded-full bg-primary" />
             <span>v1.0.2 · 2026</span>
           </div>

@@ -21,19 +21,22 @@ export function NavigationFAB() {
 
   return (
     <>
-      {/* Desktop Header Navigation */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 h-16 z-40 hidden lg:flex items-center gap-1 desktop-nav-bar">
+      {/* Desktop Sub-Header Navigation */}
+      <div 
+        className="fixed top-[128px] left-0 right-0 h-14 z-20 hidden lg:flex items-center justify-center gap-3 shadow-md border-b border-black/10"
+        style={{ background: "linear-gradient(90deg, oklch(0.32 0.08 260) 0%, oklch(0.46 0.17 260) 100%)" }}
+      >
         {NAV.map((n) => {
           const active = loc.pathname === n.to || (n.to !== "/" && loc.pathname.startsWith(n.to));
           
           let shortLabel = n.label;
-          if (n.to === "/") shortLabel = "Dashboard";
-          else if (n.to === "/spm") shortLabel = "Rapor";
-          else if (n.to === "/kecamatan") shortLabel = "Kecamatan";
-          else if (n.to === "/hambatan") shortLabel = "Hambatan";
-          else if (n.to === "/alat-bantu") shortLabel = "Alat";
-          else if (n.to === "/siswa") shortLabel = "Siswa";
-          else if (n.to === "#update") shortLabel = "Update";
+          if (n.to === "/") shortLabel = "Dashboard Utama";
+          else if (n.to === "/spm") shortLabel = "Rapor Pendidikan";
+          else if (n.to === "/kecamatan") shortLabel = "Pemetaan Kecamatan";
+          else if (n.to === "/hambatan") shortLabel = "Jenis Hambatan";
+          else if (n.to === "/alat-bantu") shortLabel = "Alat Bantu Khusus";
+          else if (n.to === "/siswa") shortLabel = "Data Siswa";
+          else if (n.to === "#update") shortLabel = "Unggah Data";
 
           const buttonClass = `px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 border border-transparent ${
             active 

@@ -6,7 +6,7 @@ import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
 
 export const Route = createFileRoute("/alat-bantu")({
-  head: () => ({ meta: [{ title: "PBS Dashboard | Alat Bantu | Lombok Barat" }] }),
+  head: () => ({ meta: [{ title: "PEDULI | Alat Bantu | Lombok Barat" }] }),
   component: AlatBantuPage,
 });
 

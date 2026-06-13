@@ -10,7 +10,7 @@ import {
 } from "recharts";
 
 export const Route = createFileRoute("/hambatan")({
-  head: () => ({ meta: [{ title: "PBS Dashboard | Analisa Hambatan | Lombok Barat" }] }),
+  head: () => ({ meta: [{ title: "PEDULI | Analisa Hambatan | Lombok Barat" }] }),
   component: HambatanPage,
 });
 

@@ -17,7 +17,7 @@ const maskName = (name: string, unlocked: boolean) => {
 };
 
 export const Route = createFileRoute("/siswa")({
-  head: () => ({ meta: [{ title: "PBS Dashboard | Data Siswa | Lombok Barat" }] }),
+  head: () => ({ meta: [{ title: "PEDULI | Data Siswa | Lombok Barat" }] }),
   component: SiswaPage,
 });
 

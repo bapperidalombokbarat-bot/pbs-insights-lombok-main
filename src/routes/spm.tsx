@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/spm")({
-  head: () => ({ meta: [{ title: "PBS Dashboard | Rapor Pendidikan | Lombok Barat" }] }),
+  head: () => ({ meta: [{ title: "PEDULI | Rapor Pendidikan | Lombok Barat" }] }),
   component: SPMPage,
 });
 

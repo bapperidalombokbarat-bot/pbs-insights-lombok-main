@@ -8,7 +8,7 @@ import {
 } from "recharts";
 
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "PBS Dashboard | Beranda | Lombok Barat" }] }),
+  head: () => ({ meta: [{ title: "PEDULI | Beranda | Lombok Barat" }] }),
   component: DashboardPage,
 });
 
@@ -122,7 +122,7 @@ function DashboardPage() {
   return (
     <div className="space-y-8 pb-12">
       <div>
-        <h2 className="text-3xl font-black text-foreground tracking-tight">Command Center PBS (Profil Belajar Siswa)</h2>
+        <h2 className="text-3xl font-black text-foreground tracking-tight">Command Center PEDULI</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Ringkasan Holistik Kinerja Rapor Pendidikan & Profil Siswa Berkebutuhan Khusus Kab. Lombok Barat
         </p>
@@ -133,7 +133,7 @@ function DashboardPage() {
         <div className="bg-gradient-to-br from-primary/90 to-blue-600 rounded-3xl p-6 text-white shadow-xl shadow-primary/20 relative overflow-hidden transition-transform hover:-translate-y-1">
           <div className="absolute -right-6 -bottom-6 text-8xl opacity-20">👥</div>
           <p className="text-white/80 text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
-            <span>📊</span> Total Siswa yg terdata PBS
+            <span>📊</span> Total Siswa yg terdata PEDULI
           </p>
           <div className="text-5xl font-black mb-1">{fmt(s.total_siswa)}</div>
           <p className="text-[11px] leading-snug font-medium opacity-90 border-t border-white/20 pt-3 mt-3">
@@ -266,7 +266,7 @@ function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="chart-card flex flex-col">
           <div className="mb-6">
-            <h3 className="!mb-0 text-lg">Konsentrasi PBS per Kecamatan</h3>
+            <h3 className="!mb-0 text-lg">Konsentrasi ABK per Kecamatan</h3>
             <p className="text-xs text-muted-foreground mt-1">Daftar wilayah dengan beban tanggungan Siswa Berkebutuhan Khusus terbanyak beserta persentasenya.</p>
           </div>
           <div className="flex-1 min-h-[380px]">
