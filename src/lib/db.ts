@@ -95,9 +95,14 @@ async function initDbDirect() {
       jenjang TEXT, 
       indikator TEXT, 
       skor REAL, 
-      label TEXT
+      label TEXT,
+      delta REAL,
+      domain TEXT
     )
   `);
+  
+  try { await runDirect("ALTER TABLE rapor_spm ADD COLUMN delta REAL"); } catch(e) {}
+  try { await runDirect("ALTER TABLE rapor_spm ADD COLUMN domain TEXT"); } catch(e) {}
 
   await runDirect(`CREATE INDEX IF NOT EXISTS idx_siswa_kecamatan ON siswa(kecamatan)`);
   await runDirect(`CREATE INDEX IF NOT EXISTS idx_siswa_jenjang ON siswa(jenjang)`);

@@ -143,23 +143,24 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
             if (dasmenSheet) {
               const data = XLSX.utils.sheet_to_json(workbook.Sheets[dasmenSheet], { header: 1 }) as any[][];
               const dasmenIndicators = [
-                { name: 'Literasi', labelIdx: 35, valIdx: 37 },
-                { name: 'Numerasi', labelIdx: 44, valIdx: 46 },
-                { name: 'Karakter', labelIdx: 55, valIdx: 57 },
-                { name: 'Kualitas Pembelajaran', labelIdx: 91, valIdx: 93 },
-                { name: 'Iklim Keamanan', labelIdx: 112, valIdx: 114 },
-                { name: 'Iklim Kebinekaan', labelIdx: 132, valIdx: 134 },
-                { name: 'Iklim Inklusivitas', labelIdx: 139, valIdx: 141 }
+                { name: 'Literasi', labelIdx: 35, valIdx: 37, domain: 'Mutu Hasil Belajar' },
+                { name: 'Numerasi', labelIdx: 44, valIdx: 46, domain: 'Mutu Hasil Belajar' },
+                { name: 'Karakter', labelIdx: 55, valIdx: 57, domain: 'Mutu Hasil Belajar' },
+                { name: 'Kualitas Pembelajaran', labelIdx: 91, valIdx: 93, domain: 'Mutu Proses Belajar' },
+                { name: 'Iklim Keamanan', labelIdx: 112, valIdx: 114, domain: 'Mutu Proses Belajar' },
+                { name: 'Iklim Kebinekaan', labelIdx: 132, valIdx: 134, domain: 'Mutu Proses Belajar' },
+                { name: 'Iklim Inklusivitas', labelIdx: 139, valIdx: 141, domain: 'Mutu Proses Belajar' }
               ];
               for (let i = 6; i < data.length; i++) {
                 const row = data[i];
                 if (!row || !row[0]) continue;
                 for (const ind of dasmenIndicators) {
-                  const score = parseVal(row[ind.valIdx]);
+                  const delta = parseVal(row[ind.valIdx]);
+                  const label = row[ind.labelIdx] || 'N/A';
                   batchStatements.push({
-                    sql: `INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    args: [row[0], row[1], row[2], row[5], 'DASMEN', ind.name, score, row[ind.labelIdx] || 'N/A']
+                    sql: `INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label, delta, domain)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    args: [row[0], row[1], row[2], row[5], 'DASMEN', ind.name, 0, label, delta, ind.domain]
                   });
                 }
                 countRapor++;
@@ -175,27 +176,28 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
             if (paudSheet) {
               const data = XLSX.utils.sheet_to_json(workbook.Sheets[paudSheet], { header: 1 }) as any[][];
               const paudIndicators = [
-                { name: 'Perencanaan Pembelajaran', labelIdx: 6, valIdx: 8 },
-                { name: 'Proses Belajar', labelIdx: 13, valIdx: 15 },
-                { name: 'Kemampuan Fondasi', labelIdx: 26, valIdx: 28 },
-                { name: 'Kebiasaan Anak Hebat', labelIdx: 42, valIdx: 44 },
-                { name: 'Sarana Prasarana', labelIdx: 53, valIdx: 55 },
-                { name: 'Iklim Keamanan', labelIdx: 65, valIdx: 67 },
-                { name: 'Iklim Inklusivitas & Kebinekaan', labelIdx: 75, valIdx: 77 },
-                { name: 'Refleksi & Perbaikan Pembelajaran', labelIdx: 83, valIdx: 85 },
-                { name: 'Kepemimpinan Instruksional', labelIdx: 90, valIdx: 92 },
-                { name: 'Kemitraan Orang Tua', labelIdx: 97, valIdx: 99 },
-                { name: 'Layanan Holistik Integratif', labelIdx: 101, valIdx: 103 }
+                { name: 'Perencanaan Pembelajaran', labelIdx: 6, valIdx: 8, domain: 'Mutu Proses Belajar' },
+                { name: 'Proses Belajar', labelIdx: 13, valIdx: 15, domain: 'Mutu Proses Belajar' },
+                { name: 'Kemampuan Fondasi', labelIdx: 26, valIdx: 28, domain: 'Mutu Hasil Belajar' },
+                { name: 'Kebiasaan Anak Hebat', labelIdx: 42, valIdx: 44, domain: 'Mutu Hasil Belajar' },
+                { name: 'Sarana Prasarana', labelIdx: 53, valIdx: 55, domain: 'Mutu Input' },
+                { name: 'Iklim Keamanan', labelIdx: 65, valIdx: 67, domain: 'Mutu Proses Belajar' },
+                { name: 'Iklim Inklusivitas & Kebinekaan', labelIdx: 75, valIdx: 77, domain: 'Mutu Proses Belajar' },
+                { name: 'Refleksi & Perbaikan Pembelajaran', labelIdx: 83, valIdx: 85, domain: 'Mutu Proses Belajar' },
+                { name: 'Kepemimpinan Instruksional', labelIdx: 90, valIdx: 92, domain: 'Mutu Input' },
+                { name: 'Kemitraan Orang Tua', labelIdx: 97, valIdx: 99, domain: 'Mutu Proses Belajar' },
+                { name: 'Layanan Holistik Integratif', labelIdx: 101, valIdx: 103, domain: 'Mutu Hasil Belajar' }
               ];
               for (let i = 6; i < data.length; i++) {
                 const row = data[i];
                 if (!row || !row[0]) continue;
                 for (const ind of paudIndicators) {
-                  const score = parseVal(row[ind.valIdx]);
+                  const delta = parseVal(row[ind.valIdx]);
+                  const label = row[ind.labelIdx] || 'N/A';
                   batchStatements.push({
-                    sql: `INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    args: [row[0], row[1], row[2], row[5], 'PAUD', ind.name, score, row[ind.labelIdx] || 'N/A']
+                    sql: `INSERT INTO rapor_spm (npsn, nama_satuan, jenis_satuan, kecamatan, jenjang, indikator, skor, label, delta, domain)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    args: [row[0], row[1], row[2], row[5], 'PAUD', ind.name, 0, label, delta, ind.domain]
                   });
                 }
                 countRapor++;

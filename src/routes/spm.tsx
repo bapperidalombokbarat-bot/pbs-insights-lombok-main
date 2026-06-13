@@ -7,9 +7,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter 
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
-} from "recharts";
 
 export const Route = createFileRoute("/spm")({
   head: () => ({ meta: [{ title: "PBS Dashboard | Rapor Pendidikan | Lombok Barat" }] }),
@@ -34,24 +31,32 @@ function SPMPage() {
       const [kecList, stats, sekolah] = await Promise.all([
         query<any>(`SELECT DISTINCT kecamatan FROM rapor_spm ORDER BY kecamatan`),
         
-        // Get averages per indicator
         query<any>(`
-          SELECT indikator, AVG(skor) as avg_skor, COUNT(*) as count
+          SELECT indikator, domain, 
+                 AVG(delta) as avg_delta,
+                 SUM(CASE WHEN label IN ('Perlu Intervensi Khusus', 'Dasar', 'Kurang', 'Merintis', 'Perlu Upaya') THEN 1 ELSE 0 END) as rentan_count,
+                 COUNT(*) as total_sekolah
           FROM rapor_spm
           ${w}
-          GROUP BY indikator
-          ORDER BY avg_skor DESC
+          GROUP BY indikator, domain
+          ORDER BY rentan_count DESC
         `, args),
 
-        // Get school list for table sorted by best average score
         query<any>(`
-          SELECT npsn, nama_satuan, jenis_satuan, kecamatan, jenjang,
-                 AVG(skor) as school_avg,
-                 GROUP_CONCAT(indikator || ':' || skor) as raw_scores
-          FROM rapor_spm
-          ${w}
-          GROUP BY npsn, nama_satuan, jenis_satuan, kecamatan, jenjang
-          ORDER BY school_avg DESC
+          SELECT r.npsn, r.nama_satuan, r.jenis_satuan, r.kecamatan, r.jenjang,
+                 AVG(r.delta) as school_avg_delta,
+                 SUM(CASE WHEN r.label IN ('Perlu Intervensi Khusus', 'Dasar', 'Kurang', 'Merintis', 'Perlu Upaya') THEN 1 ELSE 0 END) as rentan_count,
+                 GROUP_CONCAT(r.indikator || '|' || r.label || '|' || COALESCE(r.delta, 0) || '|' || COALESCE(r.domain, '-')) as raw_scores,
+                 COALESCE(pbs.total_pbs, 0) as pbs_siswa_count
+          FROM rapor_spm r
+          LEFT JOIN (
+            SELECT s.satuan_pendidikan, COUNT(DISTINCT h.siswa_id) as total_pbs
+            FROM siswa s JOIN hambatan_siswa h ON s.id = h.siswa_id
+            GROUP BY s.satuan_pendidikan
+          ) pbs ON pbs.satuan_pendidikan = r.nama_satuan
+          ${w ? w.replace(/kecamatan/g, 'r.kecamatan').replace(/jenjang/g, 'r.jenjang') : ""}
+          GROUP BY r.npsn, r.nama_satuan, r.jenis_satuan, r.kecamatan, r.jenjang, pbs.total_pbs
+          ORDER BY rentan_count DESC, school_avg_delta ASC
           LIMIT 500
         `, args)
       ]);
@@ -82,33 +87,39 @@ function SPMPage() {
     if (name.includes('Kebinekaan')) return "🤝";
     if (name.includes('Inklusivitas')) return "♿";
     if (name.includes('Karakter')) return "🌟";
-    if (name.includes('Kualitas')) return "✨";
     if (name.includes('PAUD')) return "🧸";
-    if (name.includes('Holistik')) return "🏥";
-    if (name.includes('Perencanaan')) return "📝";
     if (name.includes('Proses Belajar')) return "🎓";
     if (name.includes('Fondasi')) return "🧱";
-    if (name.includes('Kebiasaan')) return "👶";
     if (name.includes('Sarana')) return "🏫";
-    if (name.includes('Refleksi')) return "🔄";
-    if (name.includes('Kepemimpinan')) return "👔";
     if (name.includes('Kemitraan')) return "👨‍👩‍👧";
     return "📊";
   };
 
-  const getIndicatorColor = (score: number) => {
-    if (score >= 80) return "success";
-    if (score >= 50) return "warning";
-    return "danger";
+  const getLabelColor = (label: string) => {
+    const l = label.toLowerCase();
+    if (l.includes('tuntas') || l.includes('mahir') || l.includes('cakap') || l.includes('baik') || l.includes('membudaya')) return 'text-success bg-success/10 border-success/20';
+    if (l.includes('dasar') || l.includes('kurang') || l.includes('merintis') || l.includes('perlu')) return 'text-danger bg-danger/10 border-danger/20';
+    return 'text-muted-foreground bg-muted border-border';
   };
 
+  // Process selected school raw scores
+  const parsedScores = selectedSekolah?.raw_scores ? selectedSekolah.raw_scores.split(',').map((pair: string) => {
+    const parts = pair.split('|');
+    return { name: parts[0], label: parts[1], delta: parseFloat(parts[2]), domain: parts[3] };
+  }) : [];
+  
+  // Check for Inclusivity Alert
+  const hasPbs = selectedSekolah?.pbs_siswa_count > 0;
+  const isInklusifRentan = parsedScores.some((s: any) => s.name.includes('Inklusivitas') && getLabelColor(s.label).includes('danger'));
+  const pbsAlert = hasPbs && isInklusifRentan;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Rapor Pendidikan</h2>
+          <h2 className="text-2xl font-bold text-foreground">Rapor Pendidikan & PBS</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Analisis indikator Rapor Pendidikan Kabupaten Lombok Barat 2025
+            Analisis Rapor Pendidikan 2025 dan Korelasi dengan Profil Siswa Disabilitas
           </p>
         </div>
         
@@ -118,13 +129,11 @@ function SPMPage() {
             <select 
               value={kec} 
               onChange={(e) => { setKec(e.target.value); setPage(1); }} 
-              className="border border-border bg-card text-foreground rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none min-w-[160px] shadow-sm"
+              className="border border-border bg-card text-foreground rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"
             >
-              <option value="Semua" className="bg-card text-foreground">Semua Kecamatan</option>
+              <option value="Semua">Semua Kecamatan</option>
               {data.kecList.map((k: any) => (
-                <option key={k.kecamatan} value={k.kecamatan} className="bg-card text-foreground">
-                  {k.kecamatan}
-                </option>
+                <option key={k.kecamatan} value={k.kecamatan}>{k.kecamatan}</option>
               ))}
             </select>
           </div>
@@ -134,193 +143,208 @@ function SPMPage() {
             <select 
               value={jenjang} 
               onChange={(e) => { setJenjang(e.target.value); setPage(1); }} 
-              className="border border-border bg-card text-foreground rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none min-w-[140px] shadow-sm"
+              className="border border-border bg-card text-foreground rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"
             >
-              <option value="Semua" className="bg-card text-foreground">Semua Jenjang</option>
-              <option value="DASMEN" className="bg-card text-foreground">Dasmen/Vokasi</option>
-              <option value="PAUD" className="bg-card text-foreground">PAUD</option>
+              <option value="Semua">Semua Jenjang</option>
+              <option value="DASMEN">Dasmen/Vokasi</option>
+              <option value="PAUD">PAUD</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Info Cards Row - Menampilkan hingga 11 indikator utama */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {data.stats.slice(0, 11).map((st: any) => (
-          <InfoCard 
-            key={st.indikator}
-            label={st.indikator}
-            value={(st.avg_skor ?? 0).toFixed(2)}
-            sub={`Skor Rata-rata`}
-            icon={getIndicatorIcon(st.indikator)}
-            color={getIndicatorColor(st.avg_skor ?? 0)}
-          />
-        ))}
+      {/* Indikator Merah (Prioritas Intervensi) */}
+      <div className="chart-card bg-danger/5 border-danger/10">
+        <h3 className="text-danger flex items-center gap-2 mb-4">
+          <span>🚨</span> Prioritas Intervensi (Indikator Paling Rentan)
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {data.stats.slice(0, 3).map((st: any, i: number) => (
+            <div key={i} className="bg-card p-4 rounded-xl border border-danger/20 shadow-sm relative overflow-hidden">
+              <div className="absolute -right-4 -bottom-4 text-6xl opacity-5">{getIndicatorIcon(st.indikator)}</div>
+              <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">{st.domain || 'UMUM'}</div>
+              <div className="font-bold text-foreground text-sm mb-2">{st.indikator}</div>
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-xs text-danger font-medium bg-danger/10 px-2 py-1 rounded-md">
+                  {((st.rentan_count / st.total_sekolah) * 100).toFixed(1)}% Sekolah Rentan
+                </div>
+                <div className={`text-xs font-bold px-2 py-1 rounded-md ${st.avg_delta > 0 ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+                  {st.avg_delta > 0 ? '📈' : '📉'} {st.avg_delta > 0 ? '+' : ''}{(st.avg_delta ?? 0).toFixed(2)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="chart-card">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="!mb-0">Perbandingan Indikator Utama</h3>
-            <div className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-full font-bold uppercase">Skor 0-100</div>
+      <div className="chart-card">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+          <div>
+            <h3 className="!mb-0">Rincian Satuan Pendidikan & Korelasi PBS</h3>
+            <p className="text-xs text-muted-foreground mt-1">Daftar sekolah diurutkan berdasarkan tingkat kerentanan indikator terbanyak.</p>
           </div>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={data.stats} layout="vertical" margin={{ left: 20, right: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
-              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
-              <YAxis 
-                dataKey="indikator" 
-                type="category" 
-                tick={{ fontSize: 10, fill: "var(--chart-text)" }} 
-                width={120}
-              />
-              <Tooltip 
-                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
-                itemStyle={{ color: "var(--foreground)" }}
-                cursor={{ fill: 'var(--primary)', opacity: 0.05 }}
-              />
-              <Bar dataKey="avg_skor" name="Rata-rata Skor" radius={[0, 8, 8, 0]}>
-                {data.stats.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={(entry.avg_skor ?? 0) > 70 ? 'var(--color-success)' : (entry.avg_skor ?? 0) > 40 ? 'var(--color-warning)' : 'var(--color-danger)'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <input 
+            value={search} 
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }} 
+            placeholder="Cari nama sekolah..." 
+            className="border border-border bg-background rounded-xl px-4 py-2 text-sm min-w-[240px] outline-none focus:ring-2 focus:ring-primary/50 shadow-sm"
+          />
         </div>
-
-        <div className="chart-card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="!mb-0">Rincian Satuan Pendidikan ({fmt(filteredSekolah.length)})</h3>
-            <input 
-              value={search} 
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }} 
-              placeholder="Cari nama sekolah..." 
-              className="border border-border bg-background rounded-xl px-4 py-2 text-sm min-w-[200px] outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-[10px] uppercase font-bold text-muted-foreground border-b border-border">
-                <tr>
-                  <th className="text-left px-4 py-3">Nama Satuan</th>
-                  <th className="text-left px-4 py-3">Kecamatan</th>
-                  <th className="text-center px-4 py-3">Jenjang</th>
-                  <th className="text-right px-4 py-3">Capaian</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageData.map((s: any) => {
-                  const avgScore = s.school_avg || 0;
-
-                  return (
-                    <tr 
-                      key={s.npsn} 
-                      className="border-b border-border/50 hover:bg-primary/5 cursor-pointer transition-colors group"
-                      onClick={() => setSelectedSekolah(s)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="font-bold group-hover:text-primary transition-colors">{s.nama_satuan}</div>
-                        <div className="text-[10px] text-muted-foreground">NPSN: {s.npsn}</div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{s.kecamatan}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${s.jenjang === 'DASMEN' ? 'bg-blue-500/10 text-blue-600' : 'bg-pink-500/10 text-pink-600'}`}>
-                          {s.jenjang}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono font-bold">
-                        <div className="flex items-center justify-end gap-2">
-                          <span className={avgScore >= 70 ? 'text-success' : avgScore >= 40 ? 'text-warning' : 'text-danger'}>
-                            {avgScore.toFixed(2)}
+        
+        <div className="overflow-x-auto pb-4">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-[10px] uppercase font-bold text-muted-foreground border-b border-border">
+              <tr>
+                <th className="text-left px-4 py-3">Nama Satuan</th>
+                <th className="text-left px-4 py-3">Kecamatan</th>
+                <th className="text-center px-4 py-3">Status Inklusi (PBS)</th>
+                <th className="text-center px-4 py-3">Indikator Rentan</th>
+                <th className="text-right px-4 py-3">Tren Rata-rata</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageData.map((s: any) => {
+                const sScores = s.raw_scores ? s.raw_scores.split(',').map((p:string) => p.split('|')) : [];
+                const sRentanInklusi = sScores.some((p:any[]) => p[0].includes('Inklusivitas') && getLabelColor(p[1]).includes('danger'));
+                
+                return (
+                  <tr 
+                    key={s.npsn} 
+                    className="border-b border-border/50 hover:bg-primary/5 cursor-pointer transition-colors group"
+                    onClick={() => setSelectedSekolah(s)}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="font-bold group-hover:text-primary transition-colors">
+                        {s.nama_satuan}
+                        {s.jenis_satuan?.includes('Kesetaraan') && <span className="ml-2 text-xs font-normal text-muted-foreground border border-border px-1.5 py-0.5 rounded-md">({s.jenis_satuan})</span>}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">NPSN: {s.npsn} · <span className="uppercase">{s.jenis_satuan}</span></div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.kecamatan}</td>
+                    <td className="px-4 py-3 text-center">
+                      {s.pbs_siswa_count > 0 ? (
+                        sRentanInklusi ? (
+                          <span className="bg-danger/10 text-danger border border-danger/20 text-[10px] font-bold px-2 py-1 rounded-md flex items-center justify-center gap-1 w-max mx-auto">
+                            🚨 Darurat ({s.pbs_siswa_count} Siswa)
                           </span>
-                          <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">👁️</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-[10px] text-muted-foreground font-bold uppercase">Halaman {page} dari {Math.ceil(filteredSekolah.length / pageSize)}</div>
-            <div className="flex gap-2">
-              <button 
-                disabled={page <= 1} 
-                onClick={() => setPage(page - 1)}
-                className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-30 transition-all"
-              >
-                ←
-              </button>
-              <button 
-                disabled={page >= Math.ceil(filteredSekolah.length / pageSize)} 
-                onClick={() => setPage(page + 1)}
-                className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-30 transition-all"
-              >
-                →
-              </button>
-            </div>
+                        ) : (
+                          <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold px-2 py-1 rounded-md flex items-center justify-center gap-1 w-max mx-auto">
+                            ✅ Inklusif ({s.pbs_siswa_count} Siswa)
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {s.rentan_count > 0 ? (
+                        <span className="font-bold text-danger bg-danger/10 px-2 py-1 rounded-md">{s.rentan_count} Indikator</span>
+                      ) : (
+                        <span className="text-muted-foreground text-[10px] uppercase font-bold bg-muted px-2 py-1 rounded-md">Tuntas</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className={s.school_avg_delta > 0 ? 'text-success' : s.school_avg_delta < 0 ? 'text-danger' : 'text-muted-foreground'}>
+                          {s.school_avg_delta > 0 ? '+' : ''}{(s.school_avg_delta ?? 0).toFixed(2)}
+                        </span>
+                        <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">👁️</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {pageData.length === 0 && <div className="text-center py-8 text-muted-foreground bg-muted/20 border border-dashed border-border rounded-lg mx-4 mt-4">Data tidak ditemukan.</div>}
+        </div>
+        
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-[10px] text-muted-foreground font-bold uppercase">Halaman {page} dari {Math.max(1, Math.ceil(filteredSekolah.length / pageSize))}</div>
+          <div className="flex gap-2">
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-30 transition-all">←</button>
+            <button disabled={page >= Math.ceil(filteredSekolah.length / pageSize)} onClick={() => setPage(page + 1)} className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-30 transition-all">→</button>
           </div>
         </div>
       </div>
 
       <Dialog open={!!selectedSekolah} onOpenChange={(open) => !open && setSelectedSekolah(null)}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="text-2xl">{selectedSekolah?.jenjang === 'DASMEN' ? '🏫' : '🧸'}</span>
+          <DialogHeader className="pb-4 border-b border-border">
+            <DialogTitle className="flex items-start gap-3">
+              <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center text-2xl shrink-0">
+                {selectedSekolah?.jenjang === 'DASMEN' ? '🏫' : '🧸'}
+              </div>
               <div>
-                <div className="text-xl font-bold">{selectedSekolah?.nama_satuan}</div>
-                <div className="text-xs text-muted-foreground font-normal">NPSN: {selectedSekolah?.npsn} · {selectedSekolah?.kecamatan}</div>
+                <div className="text-xl font-bold leading-tight flex items-center gap-2">
+                  {selectedSekolah?.nama_satuan}
+                  {selectedSekolah?.jenis_satuan?.includes('Kesetaraan') && <span className="text-sm font-normal text-muted-foreground border border-border px-2 py-0.5 rounded-md">({selectedSekolah?.jenis_satuan})</span>}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                  <span className="bg-muted px-2 py-0.5 rounded uppercase font-semibold">{selectedSekolah?.jenis_satuan}</span>
+                  <span>NPSN: {selectedSekolah?.npsn}</span>
+                  <span>· {selectedSekolah?.kecamatan}</span>
+                </div>
               </div>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="py-4 space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-muted/30 border border-border/50 flex flex-col items-center justify-center">
-                <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Rata-rata Capaian</div>
-                <div className={`text-4xl font-black ${(selectedSekolah?.school_avg || 0) >= 70 ? 'text-success' : (selectedSekolah?.school_avg || 0) >= 40 ? 'text-warning' : 'text-danger'}`}>
-                  {(selectedSekolah?.school_avg || 0).toFixed(2)}
+          <div className="py-2 space-y-6">
+            {pbsAlert && (
+              <div className="bg-danger/10 border border-danger/30 p-4 rounded-xl flex gap-3 items-start">
+                <span className="text-2xl">🚨</span>
+                <div>
+                  <h4 className="text-danger font-bold text-sm">Peringatan Darurat Inklusi</h4>
+                  <p className="text-xs text-danger/80 mt-1 leading-relaxed">
+                    Sekolah ini menampung <strong>{selectedSekolah?.pbs_siswa_count} Siswa Berkebutuhan Khusus</strong>, 
+                    namun Rapor Pendidikan menunjukkan indikator <strong>Iklim Inklusivitas yang Rentan</strong>. 
+                    Prioritaskan intervensi untuk memastikan anak-anak mendapat akomodasi belajar yang layak.
+                  </p>
                 </div>
               </div>
-              <div className="p-4 rounded-2xl bg-muted/30 border border-border/50 flex flex-col items-center justify-center">
-                <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Status SPM</div>
-                <div className={`text-xl font-bold ${(selectedSekolah?.school_avg || 0) >= 70 ? 'text-success' : (selectedSekolah?.school_avg || 0) >= 40 ? 'text-warning' : 'text-danger'}`}>
-                  {(selectedSekolah?.school_avg || 0) >= 70 ? 'TUNTAS' : (selectedSekolah?.school_avg || 0) >= 40 ? 'WASPADA' : 'RENDAH'}
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-card border border-border/50 flex flex-col justify-center shadow-sm">
+                <div className="text-[10px] uppercase font-bold text-muted-foreground mb-2 flex items-center gap-1"><span>📈</span> Tren Capaian Keseluruhan</div>
+                <div className={`text-3xl font-black ${(selectedSekolah?.school_avg_delta || 0) > 0 ? 'text-success' : 'text-danger'}`}>
+                  {(selectedSekolah?.school_avg_delta || 0) > 0 ? '+' : ''}{(selectedSekolah?.school_avg_delta || 0).toFixed(2)}
+                </div>
+              </div>
+              <div className="p-4 rounded-xl bg-card border border-border/50 flex flex-col justify-center shadow-sm">
+                <div className="text-[10px] uppercase font-bold text-muted-foreground mb-2 flex items-center gap-1"><span>⚠️</span> Indikator Rentan / Perlu Upaya</div>
+                <div className="text-3xl font-black text-foreground">
+                  {selectedSekolah?.rentan_count} <span className="text-sm font-normal text-muted-foreground">Indikator</span>
                 </div>
               </div>
             </div>
 
             <div>
               <h4 className="text-xs font-bold uppercase text-muted-foreground mb-3 flex items-center gap-2">
-                <span className="w-1 h-3 bg-primary rounded-full" />
-                Rincian Skor per Indikator
+                <span className="w-1.5 h-4 bg-primary rounded-full" />
+                Rincian Domain & Indikator
               </h4>
               <div className="space-y-3">
-                {selectedSekolah?.raw_scores?.split(',').map((pair: string, idx: number) => {
-                  const [name, scoreStr] = pair.split(':');
-                  const score = parseFloat(scoreStr);
-                  if (isNaN(score)) return null;
-
+                {parsedScores.map((s: any, idx: number) => {
+                  const isRentan = getLabelColor(s.label).includes('danger');
                   return (
-                    <div key={idx} className="p-3 rounded-xl border border-border/50 bg-card hover:border-primary/30 transition-colors">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg">{getIndicatorIcon(name)}</span>
-                          <span className="font-semibold text-sm">{name}</span>
+                    <div key={idx} className={`p-3 rounded-xl border ${isRentan ? 'border-danger/30 bg-danger/5' : 'border-border/50 bg-card'} hover:shadow-md transition-all flex items-center justify-between`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${isRentan ? 'bg-danger/10' : 'bg-muted/50'}`}>
+                          {getIndicatorIcon(s.name)}
                         </div>
-                        <span className={`font-mono font-bold ${score >= 70 ? 'text-success' : score >= 40 ? 'text-warning' : 'text-danger'}`}>
-                          {score.toFixed(2)}
-                        </span>
+                        <div>
+                          <div className="text-[9px] font-bold uppercase text-muted-foreground mb-0.5">{s.domain}</div>
+                          <div className="font-semibold text-sm leading-tight text-foreground">{s.name}</div>
+                        </div>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-1000 ${score >= 70 ? 'bg-success' : score >= 40 ? 'bg-warning' : 'bg-danger'}`}
-                          style={{ width: `${score}%` }}
-                        />
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-md border ${getLabelColor(s.label)}`}>
+                          {s.label}
+                        </span>
+                        <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${s.delta > 0 ? 'text-success' : s.delta < 0 ? 'text-danger' : 'text-muted-foreground'}`}>
+                          {s.delta > 0 ? '▲' : s.delta < 0 ? '▼' : '▬'} {s.delta > 0 ? '+' : ''}{s.delta.toFixed(2)}
+                        </div>
                       </div>
                     </div>
                   );
@@ -329,10 +353,9 @@ function SPMPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedSekolah(null)} className="rounded-xl">
-              Tutup
-            </Button>
+          <DialogFooter className="border-t border-border pt-4 mt-2">
+            <Button variant="outline" onClick={() => setSelectedSekolah(null)} className="rounded-xl px-6">Tutup</Button>
+            {pbsAlert && <Button className="rounded-xl px-6 bg-danger hover:bg-danger/90 text-white">Buat Catatan Intervensi</Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -344,7 +367,7 @@ function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground space-y-4">
       <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      <div className="text-sm font-bold animate-pulse">Menganalisis Indikator Rapor Pendidikan...</div>
+      <div className="text-sm font-bold animate-pulse">Menganalisis Rapor Pendidikan 2025...</div>
     </div>
   );
 }

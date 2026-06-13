@@ -15,6 +15,7 @@ export const Route = createFileRoute("/kecamatan")({
 function KecamatanPage() {
   const [kec, setKec] = useState<string>("Semua");
   const [jenjang, setJenjang] = useState<string>("Semua");
+  const [drillDown, setDrillDown] = useState<{kec: string, hambatan: string, total: number} | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["kecamatan", kec, jenjang],
@@ -63,16 +64,25 @@ function KecamatanPage() {
     },
   });
 
-  const heatMap = useMemo(() => {
-    if (!data) return null;
+  const heatMapData = useMemo(() => {
+    if (!data) return { map: new Map<string, number>(), max: 0, colTotals: {} as Record<string, number>, rowTotals: {} as Record<string, number>, grandTotal: 0 };
     const map = new Map<string, number>();
+    const colTotals: Record<string, number> = {};
+    const rowTotals: Record<string, number> = {};
     let max = 0;
+    let grandTotal = 0;
+
     data.heatmap.forEach((r: any) => {
       const k = `${r.kecamatan}|${r.jenis_hambatan}`;
       map.set(k, r.total);
       if (r.total > max) max = r.total;
+      
+      colTotals[r.jenis_hambatan] = (colTotals[r.jenis_hambatan] || 0) + r.total;
+      rowTotals[r.kecamatan] = (rowTotals[r.kecamatan] || 0) + r.total;
+      grandTotal += r.total;
     });
-    return { map, max };
+
+    return { map, max, colTotals, rowTotals, grandTotal };
   }, [data]);
 
   const [search, setSearch] = useState("");
@@ -140,48 +150,73 @@ function KecamatanPage() {
         </ResponsiveContainer>
       </div>
 
-      <div className="chart-card overflow-x-auto">
-        <h3>Heatmap Jenis Hambatan per Kecamatan</h3>
+      <div className="chart-card overflow-x-auto relative">
+        <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+          <h3 className="!mb-0">Heatmap Jenis Hambatan per Kecamatan</h3>
+          <div className="text-xs text-primary bg-primary/10 px-3 py-1 rounded-full flex items-center gap-1.5 font-medium border border-primary/20">
+            <span>👆</span> Klik angka untuk melihat rincian sekolah
+          </div>
+        </div>
         <table className="text-xs w-full border-collapse">
           <thead>
             <tr>
-              <th className="text-left py-2 px-2 font-semibold sticky left-0 bg-card z-10">Kecamatan</th>
+              <th className="text-left py-2 px-2 font-semibold sticky left-0 bg-card z-10 border-b border-border/50">Kecamatan</th>
               {HAMBATAN_COLS.map((h) => (
-                <th key={h} className="px-1.5 py-2 font-medium text-muted-foreground" style={{ minWidth: 80 }}>{HAMBATAN_SHORT[h]}</th>
+                <th key={h} className="px-1.5 py-2 font-medium text-muted-foreground border-b border-border/50" style={{ minWidth: 80 }}>{HAMBATAN_SHORT[h]}</th>
               ))}
+              <th className="text-center py-2 px-2 font-bold bg-muted/30 border-b border-border/50">TOTAL</th>
             </tr>
           </thead>
           <tbody>
-            {data.kecList.map((k: any) => (
-              <tr key={k.kecamatan}>
-                <td className="py-1.5 px-2 font-medium sticky left-0 bg-card z-10 border-r border-border/50">{k.kecamatan}</td>
-                {HAMBATAN_COLS.map((h) => {
-                  const v = heatMap?.map.get(`${k.kecamatan}|${h}`) || 0;
-                  const ratio = heatMap?.max ? v / heatMap.max : 0;
-                  const bg = v === 0 ? "transparent" : `rgba(224, 36, 36, ${0.1 + ratio * 0.7})`;
-                  const color = ratio > 0.45 ? "#fff" : "var(--foreground)";
-                  return (
-                    <td key={h} className="text-center py-1.5 px-1.5 transition-colors" style={{ background: bg, color }}>
-                      {v || "—"}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {data.kecList.map((k: any) => {
+              const rowSum = heatMapData.rowTotals[k.kecamatan] || 0;
+              return (
+                <tr key={k.kecamatan} className="group">
+                  <td className="py-1.5 px-2 font-medium sticky left-0 bg-card group-hover:bg-muted/30 z-10 border-r border-b border-border/50">{k.kecamatan}</td>
+                  {HAMBATAN_COLS.map((h) => {
+                    const v = heatMapData.map.get(`${k.kecamatan}|${h}`) || 0;
+                    const ratio = heatMapData.max ? v / heatMapData.max : 0;
+                    const bg = v === 0 ? "transparent" : `rgba(224, 36, 36, ${0.1 + ratio * 0.7})`;
+                    const color = ratio > 0.45 ? "#fff" : "var(--foreground)";
+                    return (
+                      <td 
+                        key={h} 
+                        className={`text-center py-1.5 px-1.5 transition-colors border-b border-border/50 ${v > 0 ? 'cursor-pointer hover:ring-2 hover:ring-primary hover:z-20 relative font-medium' : ''}`} 
+                        style={{ background: bg, color }}
+                        title={v > 0 ? `${k.kecamatan} - ${h}: ${v} Siswa (Klik untuk detail)` : ''}
+                        onClick={() => v > 0 && setDrillDown({ kec: k.kecamatan, hambatan: h, total: v })}
+                      >
+                        {v || "—"}
+                      </td>
+                    );
+                  })}
+                  <td className="text-center py-1.5 px-2 font-bold bg-muted/30 border-b border-border/50">{rowSum || "—"}</td>
+                </tr>
+              );
+            })}
           </tbody>
+          <tfoot>
+            <tr className="bg-muted/50 font-bold">
+              <td className="py-2 px-2 sticky left-0 bg-muted/80 z-10 border-r border-t border-border/50 uppercase">Total Kabupaten</td>
+              {HAMBATAN_COLS.map((h) => (
+                <td key={h} className="text-center py-2 px-1.5 border-t border-border/50">{heatMapData.colTotals[h] || "—"}</td>
+              ))}
+              <td className="text-center py-2 px-2 text-primary border-t border-border/50 text-sm">{heatMapData.grandTotal || "—"}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
       <div className="chart-card">
         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <h3 className="!mb-0">Ringkasan Sekolah</h3>
-          <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama sekolah…" className="border border-border bg-background rounded-lg px-3 py-2 text-sm min-w-[240px]" />
+          <h3 className="!mb-0">Satuan Pendidikan dan Jenjang</h3>
+          <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama satuan pendidikan…" className="border border-border bg-background rounded-lg px-3 py-2 text-sm min-w-[240px]" />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="text-left px-3 py-2">Sekolah</th>
+                <th className="text-left px-3 py-2">Satuan Pendidikan</th>
                 <th className="text-left px-3 py-2">Kecamatan</th>
                 <th className="text-left px-3 py-2">Jenjang</th>
                 <th className="text-right px-3 py-2">Siswa</th>
@@ -205,6 +240,72 @@ function KecamatanPage() {
           </table>
         </div>
         <Pagination total={filteredSekolah.length} page={page} pageSize={pageSize} onChange={setPage} />
+      </div>
+
+      {drillDown && <DrillDownDialog data={drillDown} onClose={() => setDrillDown(null)} jenjang={jenjang} />}
+    </div>
+  );
+}
+
+function DrillDownDialog({ data, onClose, jenjang }: { data: {kec: string, hambatan: string, total: number}, onClose: ()=>void, jenjang: string }) {
+  const { data: list, isLoading } = useQuery({
+    queryKey: ["heatmap-drilldown", data.kec, data.hambatan, jenjang],
+    queryFn: async () => {
+      const args: any[] = [data.kec, data.hambatan];
+      let jWhere = "";
+      if (jenjang !== "Semua") {
+        jWhere = "AND s.jenjang=?";
+        args.push(jenjang);
+      }
+      return await query<any>(`
+        SELECT s.satuan_pendidikan, s.jenjang, COUNT(DISTINCT h.siswa_id) as n
+        FROM siswa s
+        JOIN hambatan_siswa h ON s.id = h.siswa_id
+        WHERE s.kecamatan=? AND h.jenis_hambatan=? ${jWhere}
+        GROUP BY s.satuan_pendidikan, s.jenjang
+        ORDER BY n DESC
+      `, args);
+    }
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-card rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl border border-border" onClick={(e)=>e.stopPropagation()}>
+        <div className="p-5 border-b border-border flex items-start justify-between bg-muted/30 rounded-t-2xl">
+          <div>
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <span className="text-xl">🔍</span> Rincian Sebaran Sekolah
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Kec. <strong className="text-foreground">{data.kec}</strong> · Hambatan <strong className="text-foreground">{data.hambatan}</strong>
+            </p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-background border border-border hover:bg-muted text-muted-foreground transition-colors">✕</button>
+        </div>
+        <div className="p-5 overflow-y-auto flex-1">
+          <div className="mb-5 bg-primary/10 text-primary border border-primary/20 rounded-xl p-4 flex items-center justify-between">
+            <span className="text-sm font-medium">Total Siswa Berkebutuhan</span>
+            <span className="text-2xl font-black">{data.total}</span>
+          </div>
+          
+          {isLoading ? (
+            <div className="py-12 flex justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Distribusi per Satuan Pendidikan</div>
+              {list?.map((s: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-3.5 rounded-xl border border-border/50 bg-card hover:bg-muted/40 hover:border-primary/30 transition-all group">
+                  <div>
+                    <div className="font-semibold text-sm group-hover:text-primary transition-colors">{s.satuan_pendidikan}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1 px-2 py-0.5 rounded bg-muted/60 inline-block font-medium border border-border/50">{s.jenjang}</div>
+                  </div>
+                  <div className="font-bold text-base bg-background px-3.5 py-1.5 rounded-lg border border-border shadow-sm group-hover:border-primary/40 group-hover:bg-primary/5 transition-colors">{s.n}</div>
+                </div>
+              ))}
+              {list?.length === 0 && <div className="text-center py-8 text-sm text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border">Tidak ada data terperinci yang ditemukan.</div>}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
