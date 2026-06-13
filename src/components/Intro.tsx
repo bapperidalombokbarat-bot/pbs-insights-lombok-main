@@ -60,13 +60,14 @@ export function Intro({ onEnter }: IntroProps) {
         </div>
 
         {/* Judul Aplikasi */}
-        <h1 className="animate-text-2 text-3xl md:text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-300">
-            Dashboard PBS
+        <h1 className="animate-text-2 text-4xl md:text-5xl font-black mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-300 tracking-wider">
+            PEDULI
         </h1>
         
         {/* Subjudul Daerah */}
-        <h2 className="animate-text-3 text-lg md:text-xl text-slate-400 mb-10 font-light">
-            Kabupaten Lombok Barat
+        <h2 className="animate-text-3 text-sm md:text-base text-slate-300 mb-10 font-medium leading-relaxed">
+            Sistem Data <span className="text-white font-bold">PE</span>serta <span className="text-white font-bold">D</span>idik Inkl<span className="text-white font-bold">U</span>si<br/>
+            <span className="text-white font-bold">L</span>ombok Barat <span className="text-white font-bold">I</span>nteraktif
         </h2>
 
         {/* Tombol / Indikator Masuk */}
