@@ -153,24 +153,28 @@ function AlatBantuPage() {
                     {isOpen && (
                       <tr className="bg-muted/20 dark:bg-muted/10">
                         <td colSpan={6} className="px-6 py-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {(alatByHambatan[r.jenis_hambatan] || []).map(a => (
-                              <div key={a.id} className={`p-4 rounded-xl border shadow-sm transition-all overflow-hidden ${a.kategori === 'SDM' ? 'bg-primary/5 dark:bg-primary/10 border-primary/30 ring-1 ring-primary/20' : 'bg-card border-border'}`}>
-                                <div className="flex gap-4">
-                                  {(NAME_IMG[a.nama_alat] || KAT_IMG[a.kategori]) && (
-                                    <div className="w-16 h-16 shrink-0 rounded-lg bg-white dark:bg-muted p-1 border border-border/50 shadow-inner">
-                                      <img src={NAME_IMG[a.nama_alat] || KAT_IMG[a.kategori]} alt={a.nama_alat} className="w-full h-full object-contain" />
+                              <div key={a.id} className={`p-4 rounded-xl border shadow-sm transition-all flex flex-col group ${a.kategori === 'SDM' ? 'bg-primary/5 dark:bg-primary/10 border-primary/30 ring-1 ring-primary/20' : 'bg-card border-border'} hover:shadow-md hover:border-primary/45`}>
+                                {(NAME_IMG[a.nama_alat] || KAT_IMG[a.kategori]) && (
+                                  <div className="w-full h-40 shrink-0 rounded-lg bg-white dark:bg-muted p-2 border border-border/50 shadow-inner flex items-center justify-center mb-3 overflow-hidden">
+                                    <img 
+                                      src={NAME_IMG[a.nama_alat] || KAT_IMG[a.kategori]} 
+                                      alt={a.nama_alat} 
+                                      className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110" 
+                                    />
+                                  </div>
+                                )}
+                                <div className="flex-1 flex flex-col justify-between">
+                                  <div>
+                                    <div className="flex items-start justify-between mb-1 gap-2">
+                                      <div className="font-bold text-sm text-foreground leading-tight">{a.nama_alat}</div>
+                                      {a.kategori === 'SDM' && <span className="text-[9px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold shrink-0">PENTING</span>}
                                     </div>
-                                  )}
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                      <div className="font-bold text-sm text-foreground">{a.nama_alat}</div>
-                                      {a.kategori === 'SDM' && <span className="text-[9px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold">PENTING</span>}
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-2">
+                                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-1.5 mt-1 mb-2">
                                       <span className="opacity-70">{KAT_ICON[a.kategori] || "🧰"}</span> {a.kategori}
                                     </div>
-                                    <div className="text-[11px] text-muted-foreground mt-2 leading-relaxed">{a.deskripsi}</div>
+                                    <div className="text-[11px] text-muted-foreground leading-relaxed">{a.deskripsi}</div>
                                   </div>
                                 </div>
                               </div>

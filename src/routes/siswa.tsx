@@ -160,19 +160,34 @@ function SiswaPage() {
       </div>
 
       <div className="chart-card grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
-        <input value={q} onChange={(e)=>{setQ(e.target.value);setPage(1);}} placeholder="🔍 Cari nama / NISN / sekolah" className="border border-border bg-background rounded-lg px-3 py-2 text-sm lg:col-span-2" />
-        <select value={kec} onChange={(e)=>{setKec(e.target.value);setPage(1);}} className="border border-border bg-background rounded-lg px-3 py-2 text-sm">
-          <option>Semua</option>{kecList?.map((k:any)=><option key={k.kecamatan}>{k.kecamatan}</option>)}
-        </select>
-        <select value={jenjang} onChange={(e)=>{setJenjang(e.target.value);setPage(1);}} className="border border-border bg-background rounded-lg px-3 py-2 text-sm">
-          <option>Semua</option><option>TK</option><option>SD/MI</option><option>SMP/MTS</option>
-        </select>
-        <select value={kelamin} onChange={(e)=>{setKelamin(e.target.value);setPage(1);}} className="border border-border bg-background rounded-lg px-3 py-2 text-sm">
-          <option>Semua</option><option>Laki - Laki</option><option>Perempuan</option>
-        </select>
-        <select value={tingkat} onChange={(e)=>{setTingkat(e.target.value);setPage(1);}} className="border border-border bg-background rounded-lg px-3 py-2 text-sm">
-          <option>Semua</option><option>Ringan</option><option>Sedang</option><option>Berat</option><option>Tanpa Hambatan</option>
-        </select>
+        <div className="lg:col-span-2 flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">Pencarian</label>
+          <input value={q} onChange={(e)=>{setQ(e.target.value);setPage(1);}} placeholder="🔍 Cari nama / NISN / sekolah" className="border border-border bg-background rounded-lg px-3 py-2 text-sm w-full" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">Kecamatan</label>
+          <select value={kec} onChange={(e)=>{setKec(e.target.value);setPage(1);}} className="border border-border bg-background rounded-lg px-3 py-2 text-sm w-full">
+            <option>Semua</option>{kecList?.map((k:any)=><option key={k.kecamatan}>{k.kecamatan}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">Jenjang</label>
+          <select value={jenjang} onChange={(e)=>{setJenjang(e.target.value);setPage(1);}} className="border border-border bg-background rounded-lg px-3 py-2 text-sm w-full">
+            <option>Semua</option><option>TK</option><option>SD/MI</option><option>SMP/MTS</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">Jenis Kelamin</label>
+          <select value={kelamin} onChange={(e)=>{setKelamin(e.target.value);setPage(1);}} className="border border-border bg-background rounded-lg px-3 py-2 text-sm w-full">
+            <option>Semua</option><option>Laki - Laki</option><option>Perempuan</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">Tingkat Hambatan</label>
+          <select value={tingkat} onChange={(e)=>{setTingkat(e.target.value);setPage(1);}} className="border border-border bg-background rounded-lg px-3 py-2 text-sm w-full">
+            <option>Semua</option><option>Ringan</option><option>Sedang</option><option>Berat</option><option>Tanpa Hambatan</option>
+          </select>
+        </div>
       </div>
 
       <div className="chart-card">

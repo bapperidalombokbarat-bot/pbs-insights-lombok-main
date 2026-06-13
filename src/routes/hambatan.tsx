@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
+import { HAMBATAN_INFO } from "@/lib/hambatan-info";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -13,20 +14,56 @@ export const Route = createFileRoute("/hambatan")({
   component: HambatanPage,
 });
 
-const DESKRIPSI_HAMBATAN: Record<string, string> = {
-  "Kesulitan Penglihatan": "Hambatan indra penglihatan meskipun sudah dibantu kacamata, mencakup low vision hingga buta total.",
-  "Kesulitan Pendengaran": "Hambatan dalam mempersepsi suara, mulai dari gangguan pendengaran ringan hingga tuli.",
-  "Kesulitan Motorik Kasar": "Keterbatasan dalam gerakan fisik besar seperti berjalan, keseimbangan, atau berpindah tempat.",
-  "Kesulitan Gerak dan Koordinasi Jari": "Gangguan motorik halus yang mempengaruhi kemampuan menulis atau memegang benda kecil.",
-  "Kesulitan Berbicara": "Hambatan dalam memproduksi suara atau bahasa untuk berkomunikasi secara verbal dengan jelas.",
-  "Kesulitan Kemampuan Fungsi Intelektual": "Keterbatasan dalam fungsi intelektual dan perilaku adaptif (intelegensi di bawah rata-rata).",
-  "Kesulitan Membaca Diseleksia": "Gangguan belajar spesifik yang mempengaruhi kemampuan membaca, mengeja, dan mengenali kata.",
-  "Kesulitan Perilaku Sosialisasi": "Hambatan dalam memahami norma sosial atau berinteraksi (termasuk spektrum autisme).",
-  "Kesulitan Atensi": "Kesulitan dalam memusatkan perhatian, konsentrasi, atau mengendalikan impulsivitas (seperti ADHD).",
-  "Kesulitan Emosi": "Gangguan dalam regulasi perasaan seperti kecemasan berlebih atau perubahan suasana hati ekstrem.",
-};
-
 const TINGKAT = ["Semua", "Ringan", "Sedang", "Berat"];
+
+const RadarCustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const info = HAMBATAN_INFO[data.originalName];
+    if (!info) return null;
+    
+    return (
+      <div className="bg-card/90 backdrop-blur-md border border-border/50 p-3.5 rounded-xl shadow-xl max-w-[280px] sm:max-w-[320px] text-sm z-50 relative pointer-events-none">
+        <div className="flex items-center gap-2 mb-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${info.warna}15`, color: info.warna }}>
+            <span className="text-lg">{info.icon}</span>
+          </div>
+          <div>
+            <div className="font-bold text-sm leading-tight" style={{ color: info.warna }}>{info.label}</div>
+            <div className="text-[10px] font-semibold text-muted-foreground mt-0.5">Total: <span className="text-foreground">{data.total} Siswa</span></div>
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <div>
+            <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <span>ℹ️</span> Penjelasan Singkat
+            </div>
+            <p className="text-[10.5px] text-foreground/85 leading-snug border-l-2 border-muted pl-2 py-0.5">{info.definisi}</p>
+          </div>
+          
+          <div>
+            <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <span className="text-danger">⚠️</span> Penyebab Utama
+            </div>
+            <ul className="text-[10px] text-foreground/85 leading-snug pl-4 list-disc marker:text-muted-foreground">
+              {info.penyebab.slice(0, 2).map((p, i) => <li key={i}>{p}</li>)}
+              {info.penyebab.length > 2 && <li className="text-muted-foreground italic list-none -ml-2 text-[9px] mt-0.5">+{info.penyebab.length - 2} penyebab lainnya...</li>}
+            </ul>
+          </div>
+
+          <div>
+            <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <span>💡</span> Analisa
+            </div>
+            <p className="text-[10.5px] text-foreground/80 leading-snug italic border-l-2 border-primary/30 pl-2 py-0.5">"{info.analisa}"</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 function HambatanPage() {
   const [tingkat, setTingkat] = useState("Semua");
@@ -70,7 +107,11 @@ function HambatanPage() {
       Berat:  r.find((x: any) => x.tingkat_hambatan==='Berat')?.total || 0,
     };
   });
-  const radarData = data.perJenis.map((d: any) => ({ subject: HAMBATAN_SHORT[d.jenis_hambatan], total: d.total }));
+  const radarData = data.perJenis.map((d: any) => ({ 
+    subject: HAMBATAN_SHORT[d.jenis_hambatan], 
+    total: d.total, 
+    originalName: d.jenis_hambatan 
+  }));
   const stackedData = data.perJenis.map((d: any) => ({ ...d, label: HAMBATAN_SHORT[d.jenis_hambatan] }));
 
   return (
@@ -128,7 +169,11 @@ function HambatanPage() {
               <PolarRadiusAxis tick={{ fontSize: 10, fill: "var(--chart-text)" }} stroke="var(--chart-grid)" />
               <Radar name="Total" dataKey="total" stroke="var(--primary)" fill="var(--primary)" fillOpacity={0.4} />
               <Tooltip 
-                contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                content={<RadarCustomTooltip />} 
+                cursor={{ fill: 'var(--muted)', opacity: 0.2 }} 
+                allowEscapeViewBox={{ x: true, y: true }}
+                wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
+                offset={20}
               />
             </RadarChart>
           </ResponsiveContainer>
@@ -157,18 +202,47 @@ function HambatanPage() {
       </div>
 
       <div className="chart-card">
-        <h3>Glosarium & Penjelasan Jenis Hambatan</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-          {Object.entries(DESKRIPSI_HAMBATAN).map(([title, desc]) => (
-            <div key={title} className="p-4 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
-                  <span className="text-xs font-bold">{HAMBATAN_SHORT[title].substring(0,2)}</span>
+        <h3>Glosarium & Penjelasan Lengkap Jenis Hambatan</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          {Object.entries(HAMBATAN_INFO).map(([key, info]) => (
+            <div key={key} className="p-5 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all flex flex-col">
+              <div className="flex flex-col sm:flex-row items-start gap-4 mb-4">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${info.warna}15`, color: info.warna }}>
+                  <span className="text-2xl">{info.icon}</span>
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-foreground mb-1">{title}</div>
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">{desc}</p>
+                  <div className="font-bold text-lg text-foreground leading-tight mb-1" style={{ color: info.warna }}>{info.label}</div>
+                  <p className="text-[11.5px] leading-relaxed text-muted-foreground">{info.definisi}</p>
                 </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 flex-1">
+                <div className="bg-muted/20 rounded-lg p-3 border border-border/30">
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <span className="text-danger">⚠️</span> Penyebab Utama
+                  </div>
+                  <ul className="text-[11px] text-foreground/80 space-y-1.5 pl-4 list-disc marker:text-muted-foreground">
+                    {info.penyebab.map((p, i) => <li key={i}>{p}</li>)}
+                  </ul>
+                </div>
+                
+                <div className="bg-primary/5 rounded-lg p-3 border border-primary/10">
+                  <div className="text-[10px] font-bold text-primary uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <span>💡</span> Strategi Intervensi
+                  </div>
+                  <ul className="text-[11px] text-foreground/80 space-y-1.5 pl-4 list-disc marker:text-primary/70">
+                    {info.intervensi.map((int, i) => <li key={i}>{int}</li>)}
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="pt-3 border-t border-border/50 mt-auto">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <span>🎯</span> Analisa & Perspektif
+                </div>
+                <p className="text-[11.5px] text-foreground/75 leading-relaxed italic border-l-2 border-primary/30 pl-3 py-0.5">
+                  "{info.analisa}"
+                </p>
               </div>
             </div>
           ))}
