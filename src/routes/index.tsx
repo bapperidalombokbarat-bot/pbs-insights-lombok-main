@@ -7,6 +7,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell, Legend, LabelList,
 } from "recharts";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "PEDULI | Beranda | Lombok Barat" }] }),
@@ -24,7 +25,52 @@ const COLORS = {
 function DashboardPage() {
   const [showDarurat, setShowDarurat] = useState(false);
   const [showTren, setShowTren] = useState(false);
+  const [daruratSchool, setDaruratSchool] = useState<any>(null);
+  const [trenSchool, setTrenSchool] = useState<any>(null);
   const { selectedYear } = useYear();
+
+  const { data: daruratStudents, isLoading: isLoadingStudents } = useQuery({
+    queryKey: ["darurat-students", daruratSchool?.nama_satuan, selectedYear],
+    enabled: !!daruratSchool,
+    queryFn: async () => {
+      if (selectedYear !== "2026") return [];
+      
+      const rows = await query<any>(`
+        SELECT s.id, s.nama_siswa, h.jenis_hambatan, h.tingkat_hambatan
+        FROM siswa s
+        JOIN hambatan_siswa h ON s.id = h.siswa_id
+        WHERE s.satuan_pendidikan = ?
+        ORDER BY s.nama_siswa ASC
+      `, [daruratSchool.nama_satuan]);
+
+      const grouped = new Map<number, any>();
+      rows.forEach((r: any) => {
+        if (!grouped.has(r.id)) {
+          grouped.set(r.id, { nama_siswa: r.nama_siswa, hambatan: [] });
+        }
+        grouped.get(r.id).hambatan.push({
+          jenis: r.jenis_hambatan,
+          tingkat: r.tingkat_hambatan
+        });
+      });
+      return Array.from(grouped.values());
+    }
+  });
+
+  const { data: trenDetails, isLoading: isLoadingTren } = useQuery({
+    queryKey: ["tren-details", trenSchool?.npsn, selectedYear],
+    enabled: !!trenSchool,
+    queryFn: async () => {
+      if (selectedYear !== "2026") return [];
+      
+      return await query<any>(`
+        SELECT indikator, skor, delta, label, domain
+        FROM rapor_spm
+        WHERE npsn = ? AND delta > 0
+        ORDER BY delta DESC
+      `, [trenSchool.npsn]);
+    }
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-summary", selectedYear],
@@ -217,7 +263,7 @@ function DashboardPage() {
           {data.daruratList?.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {data.daruratList.map((sch: any, idx: number) => (
-                <Link key={idx} to="/spm" className="bg-card border border-danger/30 p-4 rounded-xl hover:shadow-md transition-shadow group flex flex-col justify-between h-full cursor-pointer">
+                <div key={idx} onClick={() => setDaruratSchool(sch)} className="bg-card border border-danger/30 p-4 rounded-xl hover:shadow-md transition-shadow group flex flex-col justify-between h-full cursor-pointer">
                   <div>
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] font-bold bg-danger/10 text-danger px-2 py-0.5 rounded-md uppercase">{sch.jenjang}</span>
@@ -235,7 +281,7 @@ function DashboardPage() {
                       <span className="text-xs font-bold text-danger">{sch.label}</span>
                     </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           ) : (
@@ -253,7 +299,7 @@ function DashboardPage() {
           {data.trenList?.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {data.trenList.map((sch: any, idx: number) => (
-                <Link key={idx} to="/spm" className="bg-card border border-success/30 p-4 rounded-xl hover:shadow-md transition-shadow group flex flex-col justify-between h-full cursor-pointer">
+                <div key={idx} onClick={() => setTrenSchool(sch)} className="bg-card border border-success/30 p-4 rounded-xl hover:shadow-md transition-shadow group flex flex-col justify-between h-full cursor-pointer">
                   <div>
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] font-bold bg-success/10 text-success px-2 py-0.5 rounded-md uppercase">#{idx+1} {sch.jenjang}</span>
@@ -265,7 +311,7 @@ function DashboardPage() {
                     <span className="text-[10px] uppercase text-muted-foreground font-bold">Rata-rata Delta</span>
                     <span className="text-sm font-black text-success flex items-center gap-1">📈 +{sch.avg_delta?.toFixed(2)}</span>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           ) : (
@@ -409,6 +455,110 @@ function DashboardPage() {
           </div>
         </div>
       </div>
+      
+      {/* Modal Daftar Siswa Darurat */}
+      <Dialog open={!!daruratSchool} onOpenChange={(open) => !open && setDaruratSchool(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background border-border/50">
+          <DialogHeader className="px-6 py-4 border-b border-border bg-danger/5">
+            <DialogTitle className="flex flex-col gap-1">
+              <span className="text-[11px] font-black uppercase tracking-widest text-danger flex items-center gap-2">
+                <span>🚨</span> Investigasi Darurat Inklusi
+              </span>
+              <span className="text-xl font-black">{daruratSchool?.nama_satuan}</span>
+              <span className="text-xs font-medium text-muted-foreground">Kec. {daruratSchool?.kecamatan} • Indikator Inklusivitas: {daruratSchool?.label}</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="p-6 overflow-y-auto flex-1 bg-muted/10">
+            <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
+              <span>♿</span> Daftar Anak Berkebutuhan Khusus di Sekolah Ini ({daruratSchool?.total_pbs} Siswa)
+            </h4>
+            
+            {isLoadingStudents ? (
+              <div className="text-center py-12 text-muted-foreground animate-pulse font-bold">Mencari Data Siswa...</div>
+            ) : daruratStudents?.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {daruratStudents.map((s: any, idx: number) => (
+                  <div key={idx} className="bg-card border border-border p-3.5 rounded-xl flex flex-col shadow-sm hover:border-primary/40 transition-colors">
+                    <div className="font-bold text-[13px] leading-tight mb-3 text-foreground/90 uppercase">{s.nama_siswa}</div>
+                    <div className="flex flex-wrap gap-2">
+                      {s.hambatan.map((h: any, i: number) => (
+                        <div key={i} className="flex items-center gap-1 bg-muted/40 p-1 rounded-md border border-border/50">
+                          <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded tracking-wide">{h.jenis}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${
+                            h.tingkat === 'Berat' ? 'bg-danger/10 text-danger' : 
+                            h.tingkat === 'Sedang' ? 'bg-warning/10 text-warning' : 
+                            'bg-success/10 text-success'
+                          }`}>
+                            {h.tingkat}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground italic">Gagal memuat rincian siswa.</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal Detail Tren Positif YoY */}
+      <Dialog open={!!trenSchool} onOpenChange={(open) => !open && setTrenSchool(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background border-border/50">
+          <DialogHeader className="px-6 py-4 border-b border-border bg-success/5">
+            <DialogTitle className="flex flex-col gap-1">
+              <span className="text-[11px] font-black uppercase tracking-widest text-success flex items-center gap-2">
+                <span>⭐</span> Rincian Kenaikan Rapor Pendidikan (Year on Year)
+              </span>
+              <span className="text-xl font-black">{trenSchool?.nama_satuan}</span>
+              <span className="text-xs font-medium text-muted-foreground">Kec. {trenSchool?.kecamatan} • NPSN: {trenSchool?.npsn}</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="p-6 overflow-y-auto flex-1 bg-muted/10">
+            <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
+              <span>📈</span> Indikator yang Mengalami Peningkatan
+            </h4>
+            
+            {isLoadingTren ? (
+              <div className="text-center py-12 text-muted-foreground animate-pulse font-bold">Menganalisis Tren...</div>
+            ) : trenDetails?.length > 0 ? (
+              <div className="space-y-3">
+                {trenDetails.map((t: any, idx: number) => (
+                  <div key={idx} className="bg-card border border-border p-4 rounded-xl shadow-sm hover:border-success/40 transition-colors flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+                    <div className="flex-1">
+                      <div className="text-[10px] font-bold text-success bg-success/10 px-2 py-0.5 rounded uppercase w-max mb-2">{t.domain}</div>
+                      <div className="font-bold text-sm leading-tight text-foreground/90">{t.indikator}</div>
+                      <div className="text-[11px] text-muted-foreground mt-1">Status saat ini: <strong className="text-foreground">{t.label}</strong></div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 bg-muted/30 p-2.5 rounded-lg border border-border/50 shrink-0 w-full lg:w-auto mt-2 lg:mt-0">
+                      <div className="flex flex-col items-center min-w-[70px]">
+                        <span className="text-[9px] uppercase text-muted-foreground font-bold">Tahun Lalu</span>
+                        <span className="text-xs font-bold text-muted-foreground line-through opacity-70">{(t.skor - t.delta).toFixed(2)}</span>
+                      </div>
+                      <div className="text-muted-foreground/40 text-lg">→</div>
+                      <div className="flex flex-col items-center min-w-[70px]">
+                        <span className="text-[9px] uppercase text-success font-bold">Tahun Ini</span>
+                        <span className="text-sm font-black text-foreground">{t.skor.toFixed(2)}</span>
+                      </div>
+                      <div className="bg-success/20 text-success px-3 py-1.5 rounded-md flex flex-col items-center ml-1 sm:ml-2 border border-success/30 min-w-[70px]">
+                        <span className="text-[9px] uppercase font-bold tracking-wider">Naik</span>
+                        <span className="text-sm font-black">+{t.delta.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground italic">Gagal memuat rincian tren.</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

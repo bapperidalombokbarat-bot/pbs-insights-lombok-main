@@ -79,9 +79,9 @@ export default function Layout() {
           <div className="flex items-center gap-2">
             <span className="font-bold text-foreground/70 tracking-tighter text-lg italic">PEDULI</span>
             <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            <span>v1.0.2 · 2026</span>
+            <span>v1.0.2 · {selectedYear}</span>
           </div>
-          <p>© 2026 Pemerintah Kabupaten Lombok Barat · Bidang Pendidikan Dasar</p>
+          <p>© {selectedYear} Pemerintah Kabupaten Lombok Barat · Bapperida - Bidang P2M</p>
         </div>
       </footer>
     </div>
