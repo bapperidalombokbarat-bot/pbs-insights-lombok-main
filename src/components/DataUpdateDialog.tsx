@@ -1,5 +1,5 @@
 import { useState } from "react";
-import * as XLSX from "xlsx/xlsx.mjs";
+import * as XLSX from "xlsx";
 import { HAMBATAN_COLS, run, saveDb, batch } from "@/lib/db";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
@@ -51,7 +51,7 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
           };
 
           // 1. CEK DATA REKAPITULASI PBS
-          const pbsSheetName = workbook.SheetNames.find(n => n.includes("Rekapitulasi"));
+          const pbsSheetName = workbook.SheetNames.find((n: string) => n.includes("Rekapitulasi"));
           if (pbsSheetName) {
             setProgress("Memproses data Rekapitulasi PBS...");
             const sheet = workbook.Sheets[pbsSheetName];
@@ -130,8 +130,8 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
           }
 
           // 2. CEK DATA RAPOR PENDIDIKAN (SPM)
-          const dasmenSheet = workbook.SheetNames.find(n => n.includes("DASMEN"));
-          const paudSheet = workbook.SheetNames.find(n => n.includes("PAUD"));
+          const dasmenSheet = workbook.SheetNames.find((n: string) => n.includes("DASMEN"));
+          const paudSheet = workbook.SheetNames.find((n: string) => n.includes("PAUD"));
 
           if (dasmenSheet || paudSheet) {
             setProgress("Memproses data Rapor Pendidikan (SPM)...");

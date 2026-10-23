@@ -148,16 +148,19 @@ async function initDbDirect() {
 // === TANSTACK START SERVER RPC DEFINITIONS ===
 
 const serverQuery = createServerFn({ method: "POST" })
-  .handler(async ({ data }: { data: { sql: string; params: any[] } }) => {
-    return await queryDirect(data.sql, data.params);
+  .inputValidator((d: { sql: string; params?: any[] }) => d)
+  .handler(async ({ data }: { data: { sql: string; params?: any[] } }) => {
+    return await queryDirect(data.sql, data.params || []);
   });
 
 const serverRun = createServerFn({ method: "POST" })
-  .handler(async ({ data }: { data: { sql: string; params: any[] } }) => {
-    await runDirect(data.sql, data.params);
+  .inputValidator((d: { sql: string; params?: any[] }) => d)
+  .handler(async ({ data }: { data: { sql: string; params?: any[] } }) => {
+    await runDirect(data.sql, data.params || []);
   });
 
 const serverBatch = createServerFn({ method: "POST" })
+  .inputValidator((d: { statements: { sql: string; args: any[] }[] }) => d)
   .handler(async ({ data }: { data: { statements: { sql: string; args: any[] }[] } }) => {
     await batchDirect(data.statements);
   });

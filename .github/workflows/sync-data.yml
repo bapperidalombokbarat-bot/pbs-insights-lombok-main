@@ -1,0 +1,49 @@
+name: Sinkronisasi & Pemutakhiran Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Pilih data yang ingin diperbarui:"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - pbs-only
+          - rapor-only
+  push:
+    paths:
+      - "*.xlsx"
+      - "VERVAL LANJUTAN DATA PBS/**"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    name: Sync Excel to Database
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Jalankan Sinkronisasi Data
+        env:
+          VITE_TURSO_DATABASE_URL: ${{ secrets.VITE_TURSO_DATABASE_URL }}
+          VITE_TURSO_AUTH_TOKEN: ${{ secrets.VITE_TURSO_AUTH_TOKEN }}
+        run: |
+          TARGET="${{ github.event.inputs.target || 'all' }}"
+          if [ "$TARGET" = "pbs-only" ]; then
+            node scripts/sync-data.mjs --pbs-only
+          elif [ "$TARGET" = "rapor-only" ]; then
+            node scripts/sync-data.mjs --rapor-only
+          else
+            node scripts/sync-data.mjs
+          fi

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useYear } from "@/lib/YearContext";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
-import * as XLSX from "xlsx/xlsx.mjs";
+import * as XLSX from "xlsx";
 import { Eye, EyeOff } from "lucide-react";
 
 const maskName = (name: string, unlocked: boolean) => {
