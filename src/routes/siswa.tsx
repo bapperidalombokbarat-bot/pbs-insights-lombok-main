@@ -6,15 +6,10 @@ import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import * as XLSX from "xlsx";
 import { Eye, EyeOff, ShieldAlert } from "lucide-react";
 
-const maskName = (name: string, unlocked: boolean) => {
-  if (unlocked || !name) return name;
-  return name
-    .split(" ")
-    .map((word) => {
-      if (!word) return "";
-      return word[0] + "*".repeat(word.length - 1);
-    })
-    .join(" ");
+const maskNisn = (nisn: string, unlocked: boolean) => {
+  if (unlocked || !nisn) return nisn;
+  if (nisn.length < 6) return "******";
+  return nisn.slice(0, 2) + "******" + nisn.slice(-2);
 };
 
 export const Route = createFileRoute("/siswa")({
@@ -39,7 +34,7 @@ function SiswaPage() {
     if (isAllUnlocked) {
       setIsAllUnlocked(false);
     } else {
-      const pwd = prompt("Masukkan password untuk membuka data semua siswa:");
+      const pwd = prompt("Masukkan password untuk membuka sensor NIK & NISN semua siswa:");
       if (pwd === "17041958") {
         setIsAllUnlocked(true);
       } else if (pwd !== null) {
@@ -266,19 +261,19 @@ function SiswaPage() {
               <thead className="bg-muted text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="text-left px-2 py-2">No</th>
+                  <th className="text-left px-2 py-2">Nama Siswa</th>
                   <th className="text-left px-2 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span>Nama Siswa</span>
+                      <span>NISN</span>
                       <button 
                         onClick={handleToggleUnlock}
                         className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors inline-flex items-center"
-                        title={isAllUnlocked ? "Samarkan semua nama & NISN" : "Tampilkan semua nama & NISN"}
+                        title={isAllUnlocked ? "Samarkan NISN" : "Buka sensor NISN"}
                       >
                         {isAllUnlocked ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   </th>
-                  <th className="text-left px-2 py-2">NISN</th>
                   <th className="text-left px-2 py-2">Sekolah</th>
                   <th className="text-left px-2 py-2">Kecamatan</th>
                   <th className="text-left px-2 py-2">Jenjang</th>
@@ -294,15 +289,14 @@ function SiswaPage() {
                   const hs = data.hambMap.get(r.id) || [];
                   const nama = r.nama_siswa || "";
                   const nisn = r.nisn || "";
-                  const maskedNama = maskName(nama, isAllUnlocked);
-                  const maskedNisn = isAllUnlocked ? nisn : "*".repeat(nisn.length || 10);
+                  const maskedNisn = maskNisn(nisn, isAllUnlocked);
 
                   return (
                     <tr key={r.id} className="border-t border-border hover:bg-muted/40">
                       <td className="px-2 py-2 text-muted-foreground">{(page-1)*perPage + i + 1}</td>
                       <td className="px-2 py-2 font-medium">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span>{maskedNama}</span>
+                          <span>{nama}</span>
                           {r.verval_id && (
                             <span 
                               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 whitespace-nowrap" 
@@ -362,7 +356,7 @@ function SiswaPage() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-xl font-bold">
-                    {maskName(detail.s.nama_siswa, isAllUnlocked)}
+                    {detail.s.nama_siswa}
                   </h3>
                   {detail.verval && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
@@ -371,11 +365,8 @@ function SiswaPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  NISN: {isAllUnlocked 
-                    ? detail.s.nisn 
-                    : "*".repeat((detail.s.nisn || "").length || 10)
-                  }
+                <p className="text-sm text-muted-foreground mt-1 font-mono">
+                  NISN: {maskNisn(detail.s.nisn, isAllUnlocked)}
                 </p>
               </div>
               <button onClick={()=>setDetail(null)} className="text-2xl text-muted-foreground hover:text-foreground ml-4">×</button>
@@ -456,9 +447,7 @@ function SiswaPage() {
                       <div className="flex items-center justify-between border-t border-border/40 pt-1.5 mt-1">
                         <span className="text-muted-foreground">Orang Tua (Ayah / Ibu):</span>
                         <span className="font-medium text-foreground">
-                          {isAllUnlocked 
-                            ? `${detail.verval.nama_ayah || '-'} / ${detail.verval.nama_ibu || '-'}` 
-                            : `${maskName(detail.verval.nama_ayah || '', false)} / ${maskName(detail.verval.nama_ibu || '', false)}`}
+                          {`${detail.verval.nama_ayah || '-'} / ${detail.verval.nama_ibu || '-'}`}
                         </span>
                       </div>
                     )}

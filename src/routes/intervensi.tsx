@@ -29,21 +29,16 @@ import {
   Legend,
 } from "recharts";
 
-const maskName = (name: string, unlocked: boolean) => {
-  if (unlocked || !name) return name;
-  return name
-    .split(" ")
-    .map((word) => {
-      if (!word) return "";
-      return word[0] + "*".repeat(Math.max(1, word.length - 1));
-    })
-    .join(" ");
-};
-
 const maskNik = (nik: string, unlocked: boolean) => {
   if (unlocked || !nik) return nik;
   if (nik.length < 8) return "******";
   return nik.slice(0, 4) + "********" + nik.slice(-4);
+};
+
+const maskNisn = (nisn: string, unlocked: boolean) => {
+  if (unlocked || !nisn) return nisn;
+  if (nisn.length < 6) return "******";
+  return nisn.slice(0, 2) + "******" + nisn.slice(-2);
 };
 
 export const Route = createFileRoute("/intervensi")({
@@ -116,7 +111,7 @@ function IntervensiPage() {
     if (isUnlocked) {
       setIsUnlocked(false);
     } else {
-      const pwd = prompt("Masukkan password otoritas untuk membuka nama & NIK lengkap:");
+      const pwd = prompt("Masukkan password otoritas untuk membuka sensor NIK & NISN:");
       if (pwd === "17041958") {
         setIsUnlocked(true);
       } else if (pwd !== null) {
@@ -465,7 +460,7 @@ function IntervensiPage() {
               className="rounded-xl flex items-center gap-1.5 text-xs font-bold"
             >
               {isUnlocked ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              {isUnlocked ? "Kunci NIK/Nama" : "Buka NIK/Nama"}
+              {isUnlocked ? "Kunci NIK/NISN" : "Buka Sensor NIK/NISN"}
             </Button>
             <Button
               variant="outline"
@@ -680,10 +675,10 @@ function IntervensiPage() {
                         </td>
                         <td className="py-3 px-3">
                           <div className="font-bold text-foreground">
-                            {maskName(r.nama_siswa, isUnlocked)}
+                            {r.nama_siswa}
                           </div>
                           <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                            NISN: {r.nisn} · NIK: {maskNik(r.nik_siswa, isUnlocked)}
+                            NISN: {maskNisn(r.nisn, isUnlocked)} · NIK: {maskNik(r.nik_siswa, isUnlocked)}
                           </div>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
                             JK: <span className="font-semibold text-foreground">{r.jenis_kelamin || "—"}</span>
@@ -989,10 +984,10 @@ function IntervensiPage() {
                   </span>
                 </div>
                 <DialogTitle className="text-xl font-black">
-                  {maskName(detailSiswa.nama_siswa, isUnlocked)}
+                  {detailSiswa.nama_siswa}
                 </DialogTitle>
                 <DialogDescription className="font-mono text-xs">
-                  NISN: {detailSiswa.nisn} · NIK: {maskNik(detailSiswa.nik_siswa, isUnlocked)}
+                  NISN: {maskNisn(detailSiswa.nisn, isUnlocked)} · NIK: {maskNik(detailSiswa.nik_siswa, isUnlocked)}
                 </DialogDescription>
               </DialogHeader>
 
@@ -1032,14 +1027,14 @@ function IntervensiPage() {
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div>
                       <span className="text-[11px] text-muted-foreground block">Nama Ayah</span>
-                      <span className="font-semibold text-foreground">{maskName(detailSiswa.nama_ayah, isUnlocked) || "—"}</span>
+                      <span className="font-semibold text-foreground">{detailSiswa.nama_ayah || "—"}</span>
                       {detailSiswa.nik_ayah && (
                         <span className="text-[10px] text-muted-foreground font-mono block">NIK: {maskNik(detailSiswa.nik_ayah, isUnlocked)}</span>
                       )}
                     </div>
                     <div>
                       <span className="text-[11px] text-muted-foreground block">Nama Ibu</span>
-                      <span className="font-semibold text-foreground">{maskName(detailSiswa.nama_ibu, isUnlocked) || "—"}</span>
+                      <span className="font-semibold text-foreground">{detailSiswa.nama_ibu || "—"}</span>
                       {detailSiswa.nik_ibu && (
                         <span className="text-[10px] text-muted-foreground font-mono block">NIK: {maskNik(detailSiswa.nik_ibu, isUnlocked)}</span>
                       )}
