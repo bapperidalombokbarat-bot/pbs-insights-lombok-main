@@ -629,7 +629,7 @@ function IntervensiPage() {
                   <th className="py-3 px-3 min-w-[170px]">Pendidikan &amp; Wilayah</th>
                   <th className="py-3 px-3 text-center min-w-[130px]">Status Desil (DTSEN)</th>
                   <th className="py-3 px-3 text-center min-w-[170px]">Status Bantuan Sosial</th>
-                  <th className="py-3 px-3 min-w-[200px]">Status Kesehatan &amp; FKTP</th>
+                  <th className="py-3 px-3 min-w-[260px]">Status Kesehatan &amp; FKTP</th>
                   <th className="py-3 px-3 min-w-[140px]">Dokter Pemeriksa</th>
                   <th className="py-3 px-3 min-w-[150px]">Diagnosa</th>
                   <th className="py-3 px-3 min-w-[160px]">Tindakan</th>
@@ -739,27 +739,31 @@ function IntervensiPage() {
                           </div>
                         </td>
                         <td className="py-3 px-3">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1 font-semibold text-foreground text-[11px]">
-                              <HeartPulse className="w-3 h-3 text-rose-500 shrink-0" />
-                              <span className="truncate max-w-[170px]" title={r.status_medis}>
-                                {r.status_medis && r.status_medis !== "TIDAK ADA PENYAKIT KRONIS" ? r.status_medis : "Tidak Ada Kronis"}
+                          <div className="space-y-1.5 min-w-[240px]">
+                            <div className="flex items-start gap-1 font-semibold text-foreground text-[11px] leading-snug">
+                              <HeartPulse className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                              <span title={r.status_medis}>
+                                {r.status_medis && r.status_medis !== "TIDAK ADA PENYAKIT KRONIS" ? r.status_medis : "Tidak Ada Penyakit Kronis"}
                               </span>
                             </div>
                             {r.disabilitas_dtsen && r.disabilitas_dtsen !== "TIDAK TERCATAT DI DTSEN (TERVERIFIKASI PBS)" && (
-                              <div className="text-[10px] text-indigo-600 dark:text-indigo-400 line-clamp-1 max-w-[170px]" title={r.disabilitas_dtsen}>
+                              <div className="text-[10px] text-indigo-600 dark:text-indigo-400 line-clamp-2 leading-tight" title={r.disabilitas_dtsen}>
                                 DTSEN: {r.disabilitas_dtsen}
                               </div>
                             )}
                             {hambatanList.length > 0 && (
-                              <div className="text-[9px] text-primary line-clamp-1 max-w-[170px]" title={hambatanList.map((h:any)=>`${h.jenis_hambatan}: ${h.tipe_alat_rekomendasi}`).join(", ")}>
+                              <div className="text-[9.5px] text-primary font-medium" title={hambatanList.map((h:any)=>`${h.jenis_hambatan}: ${h.tipe_alat_rekomendasi}`).join(", ")}>
                                 Alat: {hambatanList[0]?.tipe_alat_rekomendasi}
                               </div>
                             )}
-                            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-primary shrink-0" />
-                              <span className="truncate max-w-[110px]" title={r.puskesmas_terdekat}>{r.puskesmas_terdekat || "—"}</span>
-                              <span className="font-bold text-foreground">({r.jarak_km} KM)</span>
+                            <div className="text-[10.5px] text-muted-foreground flex items-center gap-1.5 flex-wrap pt-0.5">
+                              <div className="flex items-center gap-1 font-bold text-foreground">
+                                <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                                <span className="whitespace-normal leading-tight">{r.puskesmas_terdekat || "—"}</span>
+                              </div>
+                              <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/25 px-1.5 py-0.5 rounded text-[9.5px] shrink-0">
+                                {r.jarak_km} KM
+                              </span>
                             </div>
                           </div>
                         </td>
