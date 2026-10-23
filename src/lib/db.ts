@@ -100,6 +100,47 @@ async function initDbDirect() {
       domain TEXT
     )
   `);
+
+  await runDirect(`
+    CREATE TABLE IF NOT EXISTS verval_lanjutan (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      siswa_id INTEGER,
+      nisn TEXT,
+      nik_siswa TEXT,
+      nama_siswa TEXT,
+      sumber_instansi TEXT,
+      alamat_siswa TEXT,
+      alamat_sekolah TEXT,
+      nama_ibu TEXT,
+      nik_ibu TEXT,
+      nama_ayah TEXT,
+      nik_ayah TEXT,
+      status_patju360 TEXT,
+      metode_verval TEXT,
+      desil_nasional TEXT,
+      kategori_desil TEXT,
+      desil_awal TEXT,
+      pkh TEXT,
+      bansos_sembako TEXT,
+      beasiswa_bskm TEXT,
+      pbi_jk TEXT,
+      status_medis TEXT,
+      disabilitas_dtsen TEXT,
+      puskesmas_terdekat TEXT,
+      jarak_km REAL
+    )
+  `);
+
+  await runDirect(`
+    CREATE TABLE IF NOT EXISTS verval_hambatan (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      siswa_id INTEGER,
+      nisn TEXT,
+      jenis_hambatan TEXT,
+      klasifikasi TEXT,
+      tipe_alat_rekomendasi TEXT
+    )
+  `);
   
   try { await runDirect("ALTER TABLE rapor_spm ADD COLUMN delta REAL"); } catch(e) {}
   try { await runDirect("ALTER TABLE rapor_spm ADD COLUMN domain TEXT"); } catch(e) {}
@@ -111,6 +152,12 @@ async function initDbDirect() {
   await runDirect(`CREATE INDEX IF NOT EXISTS idx_rapor_jenjang ON rapor_spm(jenjang)`);
   await runDirect(`CREATE INDEX IF NOT EXISTS idx_rapor_npsn ON rapor_spm(npsn)`);
   await runDirect(`CREATE INDEX IF NOT EXISTS idx_rapor_indikator ON rapor_spm(indikator)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_verval_nisn ON verval_lanjutan(nisn)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_verval_siswa_id ON verval_lanjutan(siswa_id)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_verval_desil ON verval_lanjutan(desil_nasional)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_verval_instansi ON verval_lanjutan(sumber_instansi)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_verval_hambatan_nisn ON verval_hambatan(nisn)`);
+  await runDirect(`CREATE INDEX IF NOT EXISTS idx_verval_hambatan_siswa_id ON verval_hambatan(siswa_id)`);
   
   const count = await queryOneDirect<{ n: number }>("SELECT COUNT(*) as n FROM alat_bantu");
   if (count && count.n === 0) {

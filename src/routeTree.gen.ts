@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SpmRouteImport } from './routes/spm'
 import { Route as SiswaRouteImport } from './routes/siswa'
 import { Route as KecamatanRouteImport } from './routes/kecamatan'
+import { Route as IntervensiRouteImport } from './routes/intervensi'
 import { Route as HambatanRouteImport } from './routes/hambatan'
 import { Route as AlatBantuRouteImport } from './routes/alat-bantu'
 import { Route as IndexRouteImport } from './routes/index'
@@ -29,6 +30,11 @@ const SiswaRoute = SiswaRouteImport.update({
 const KecamatanRoute = KecamatanRouteImport.update({
   id: '/kecamatan',
   path: '/kecamatan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntervensiRoute = IntervensiRouteImport.update({
+  id: '/intervensi',
+  path: '/intervensi',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HambatanRoute = HambatanRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alat-bantu': typeof AlatBantuRoute
   '/hambatan': typeof HambatanRoute
+  '/intervensi': typeof IntervensiRoute
   '/kecamatan': typeof KecamatanRoute
   '/siswa': typeof SiswaRoute
   '/spm': typeof SpmRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alat-bantu': typeof AlatBantuRoute
   '/hambatan': typeof HambatanRoute
+  '/intervensi': typeof IntervensiRoute
   '/kecamatan': typeof KecamatanRoute
   '/siswa': typeof SiswaRoute
   '/spm': typeof SpmRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/alat-bantu': typeof AlatBantuRoute
   '/hambatan': typeof HambatanRoute
+  '/intervensi': typeof IntervensiRoute
   '/kecamatan': typeof KecamatanRoute
   '/siswa': typeof SiswaRoute
   '/spm': typeof SpmRoute
@@ -78,16 +87,25 @@ export interface FileRouteTypes {
     | '/'
     | '/alat-bantu'
     | '/hambatan'
+    | '/intervensi'
     | '/kecamatan'
     | '/siswa'
     | '/spm'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/alat-bantu' | '/hambatan' | '/kecamatan' | '/siswa' | '/spm'
+  to:
+    | '/'
+    | '/alat-bantu'
+    | '/hambatan'
+    | '/intervensi'
+    | '/kecamatan'
+    | '/siswa'
+    | '/spm'
   id:
     | '__root__'
     | '/'
     | '/alat-bantu'
     | '/hambatan'
+    | '/intervensi'
     | '/kecamatan'
     | '/siswa'
     | '/spm'
@@ -97,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlatBantuRoute: typeof AlatBantuRoute
   HambatanRoute: typeof HambatanRoute
+  IntervensiRoute: typeof IntervensiRoute
   KecamatanRoute: typeof KecamatanRoute
   SiswaRoute: typeof SiswaRoute
   SpmRoute: typeof SpmRoute
@@ -123,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/kecamatan'
       fullPath: '/kecamatan'
       preLoaderRoute: typeof KecamatanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intervensi': {
+      id: '/intervensi'
+      path: '/intervensi'
+      fullPath: '/intervensi'
+      preLoaderRoute: typeof IntervensiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hambatan': {
@@ -153,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlatBantuRoute: AlatBantuRoute,
   HambatanRoute: HambatanRoute,
+  IntervensiRoute: IntervensiRoute,
   KecamatanRoute: KecamatanRoute,
   SiswaRoute: SiswaRoute,
   SpmRoute: SpmRoute,

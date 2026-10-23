@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useYear } from "@/lib/YearContext";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import * as XLSX from "xlsx";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ShieldAlert } from "lucide-react";
 
 const maskName = (name: string, unlocked: boolean) => {
   if (unlocked || !name) return name;
@@ -28,6 +28,7 @@ function SiswaPage() {
   const [jenjang, setJenjang] = useState("Semua");
   const [kelamin, setKelamin] = useState("Semua");
   const [tingkat, setTingkat] = useState("Semua");
+  const [filterVerval, setFilterVerval] = useState<"semua" | "verval">("semua");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const [detail, setDetail] = useState<any>(null);
@@ -46,6 +47,14 @@ function SiswaPage() {
       }
     }
   };
+
+  const { data: totalVervalCount } = useQuery({
+    queryKey: ["verval-count"],
+    queryFn: async () => {
+      const res = await query<any>(`SELECT COUNT(*) as n FROM verval_lanjutan`);
+      return res[0]?.n || 0;
+    }
+  });
 
   const { data: kecList } = useQuery({
     queryKey: ["kec-list"],
@@ -67,8 +76,11 @@ function SiswaPage() {
       where.push("EXISTS (SELECT 1 FROM hambatan_siswa h WHERE h.siswa_id=s.id AND h.tingkat_hambatan=?)");
       args.push(tingkat);
     }
+    if (filterVerval === "verval") {
+      where.push("EXISTS (SELECT 1 FROM verval_lanjutan vl WHERE vl.nisn = s.nisn)");
+    }
     return { w: where.length ? "WHERE " + where.join(" AND ") : "", args };
-  }, [q, kec, jenjang, kelamin, tingkat]);
+  }, [q, kec, jenjang, kelamin, tingkat, filterVerval]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["siswa", filterSql, page, perPage, selectedYear],
@@ -79,7 +91,18 @@ function SiswaPage() {
 
       const total = (await query<any>(`SELECT COUNT(*) AS n FROM siswa s ${filterSql.w}`, filterSql.args))[0].n;
       const rows = await query<any>(`
-        SELECT s.* FROM siswa s ${filterSql.w}
+        SELECT 
+          s.*,
+          vl.id AS verval_id,
+          vl.desil_nasional,
+          vl.sumber_instansi,
+          vl.beasiswa_bskm,
+          vl.pbi_jk,
+          vl.puskesmas_terdekat,
+          vl.jarak_km
+        FROM siswa s 
+        LEFT JOIN verval_lanjutan vl ON vl.nisn = s.nisn
+        ${filterSql.w}
         ORDER BY s.nama_siswa LIMIT ? OFFSET ?
       `, [...filterSql.args, perPage, (page - 1) * perPage]);
       const ids = rows.map((r: any) => r.id);
@@ -147,7 +170,16 @@ function SiswaPage() {
   const openDetail = async (s: any) => {
     const hamb = await query<any>(`SELECT * FROM hambatan_siswa WHERE siswa_id=?`, [s.id]);
     const alat = hamb.length ? await query<any>(`SELECT * FROM alat_bantu WHERE jenis_hambatan IN (${hamb.map(()=>"?").join(",")})`, hamb.map((h:any)=>h.jenis_hambatan)) : [];
-    setDetail({ s, hamb, alat });
+    
+    // Cek apakah ada data verval_lanjutan
+    const vervalRows = await query<any>(`SELECT * FROM verval_lanjutan WHERE nisn=? OR siswa_id=?`, [s.nisn, s.id]);
+    const verval = vervalRows[0] || null;
+    let vervalHamb: any[] = [];
+    if (verval) {
+      vervalHamb = await query<any>(`SELECT * FROM verval_hambatan WHERE nisn=? OR siswa_id=?`, [s.nisn, s.id]);
+    }
+
+    setDetail({ s, hamb, alat, verval, vervalHamb });
   };
 
   return (
@@ -163,6 +195,37 @@ function SiswaPage() {
           </button>
           <button onClick={exportCsv} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">⬇ Export CSV</button>
         </div>
+      </div>
+
+      {/* Quick Filter Toggle: Semua Siswa vs Khusus Terverifikasi PATJU 360 */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => { setFilterVerval("semua"); setPage(1); }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+            filterVerval === "semua"
+              ? "bg-primary text-primary-foreground border-primary shadow"
+              : "bg-card text-foreground border-border hover:bg-muted"
+          }`}
+        >
+          <span>Semua Siswa</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-primary-foreground/20 text-inherit font-mono">
+            {filterVerval === "semua" && data ? fmt(data.total) : "12.281"}
+          </span>
+        </button>
+        <button
+          onClick={() => { setFilterVerval("verval"); setPage(1); }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+            filterVerval === "verval"
+              ? "bg-emerald-600 text-white border-emerald-600 shadow"
+              : "bg-card text-foreground border-border hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400"
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4" />
+          <span>Khusus Terverifikasi (PATJU 360)</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-inherit font-black font-mono">
+            {totalVervalCount ?? 277}
+          </span>
+        </button>
       </div>
 
       <div className="chart-card grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
@@ -237,7 +300,20 @@ function SiswaPage() {
                   return (
                     <tr key={r.id} className="border-t border-border hover:bg-muted/40">
                       <td className="px-2 py-2 text-muted-foreground">{(page-1)*perPage + i + 1}</td>
-                      <td className="px-2 py-2 font-medium">{maskedNama}</td>
+                      <td className="px-2 py-2 font-medium">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{maskedNama}</span>
+                          {r.verval_id && (
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 whitespace-nowrap" 
+                              title={`Terverifikasi PATJU 360 (${r.sumber_instansi || 'Dikbud/Kemenag'})`}
+                            >
+                              <ShieldAlert className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                              PATJU 360
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-2 py-2 text-xs text-muted-foreground font-mono">{maskedNisn}</td>
                       <td className="px-2 py-2">{r.satuan_pendidikan}</td>
                       <td className="px-2 py-2">{r.kecamatan}</td>
@@ -284,10 +360,16 @@ function SiswaPage() {
           <div className="bg-card rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e)=>e.stopPropagation()}>
             <div className="p-6 border-b border-border flex items-start justify-between">
               <div className="flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-xl font-bold">
                     {maskName(detail.s.nama_siswa, isAllUnlocked)}
                   </h3>
+                  {detail.verval && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                      <ShieldAlert className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      Terverifikasi PATJU 360
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   NISN: {isAllUnlocked 
@@ -306,6 +388,101 @@ function SiswaPage() {
                 <div><div className="text-xs text-muted-foreground">Kelas</div><div className="font-medium">{detail.s.tingkat_kelas}</div></div>
                 <div><div className="text-xs text-muted-foreground">Jenis Kelamin</div><div className="font-medium">{detail.s.jenis_kelamin}</div></div>
               </div>
+
+              {/* Blok Khusus Verval Lanjutan PATJU 360 */}
+              {detail.verval && (
+                <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h4 className="font-semibold text-sm text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                      <ShieldAlert className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Profil Verval Terpadu (PATJU 360)
+                    </h4>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">
+                      {detail.verval.sumber_instansi || "Dikbud"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                    <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase">Taraf Desil</div>
+                      <div className="font-bold text-foreground">
+                        {detail.verval.desil_nasional || detail.verval.desil_awal || "Non-Desil"}
+                        <span className="text-[10px] text-muted-foreground ml-1">({detail.verval.kategori_desil || "Reguler"})</span>
+                      </div>
+                    </div>
+                    <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase">Beasiswa BSKM</div>
+                      <div className={`font-bold ${detail.verval.beasiswa_bskm === 'Sudah Menerima' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {detail.verval.beasiswa_bskm || "-"}
+                      </div>
+                    </div>
+                    <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase">BPJS PBI-JK</div>
+                      <div className={`font-bold ${detail.verval.pbi_jk === 'Sudah Menerima' ? 'text-emerald-600' : 'text-slate-600'}`}>
+                        {detail.verval.pbi_jk || "-"}
+                      </div>
+                    </div>
+                    <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase">Bansos PKH</div>
+                      <div className="font-bold text-foreground">{detail.verval.pkh || "-"}</div>
+                    </div>
+                    <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase">Bansos Sembako</div>
+                      <div className="font-bold text-foreground">{detail.verval.bansos_sembako || "-"}</div>
+                    </div>
+                    <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase">Status Medis</div>
+                      <div className="font-bold text-foreground">{detail.verval.status_medis || "-"}</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-background/90 p-2.5 rounded-lg border border-border/50 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Puskesmas Rujukan:</span>
+                      <span className="font-bold text-foreground">{detail.verval.puskesmas_terdekat || "-"}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Jarak ke FKTP:</span>
+                      <span className="font-bold text-foreground">{detail.verval.jarak_km ? `${detail.verval.jarak_km} KM` : "-"}</span>
+                    </div>
+                    {(detail.verval.nama_ayah || detail.verval.nama_ibu) && (
+                      <div className="flex items-center justify-between border-t border-border/40 pt-1.5 mt-1">
+                        <span className="text-muted-foreground">Orang Tua (Ayah / Ibu):</span>
+                        <span className="font-medium text-foreground">
+                          {isAllUnlocked 
+                            ? `${detail.verval.nama_ayah || '-'} / ${detail.verval.nama_ibu || '-'}` 
+                            : `${maskName(detail.verval.nama_ayah || '', false)} / ${maskName(detail.verval.nama_ibu || '', false)}`}
+                        </span>
+                      </div>
+                    )}
+                    {detail.verval.alamat_siswa && (
+                      <div className="flex items-start justify-between border-t border-border/40 pt-1.5 mt-1">
+                        <span className="text-muted-foreground">Alamat Siswa:</span>
+                        <span className="font-medium text-foreground text-right max-w-[65%]">{detail.verval.alamat_siswa}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {detail.vervalHamb && detail.vervalHamb.length > 0 && (
+                    <div className="pt-1">
+                      <div className="text-xs font-semibold text-muted-foreground mb-1.5">Rekomendasi Alat Spesifik (Verval PATJU 360):</div>
+                      <div className="space-y-1.5">
+                        {detail.vervalHamb.map((vh: any, idx: number) => (
+                          <div key={idx} className="bg-background/90 p-2 rounded-lg border border-border/60 text-xs flex items-center justify-between">
+                            <div>
+                              <span className="font-semibold">{vh.jenis_hambatan}</span>
+                              <span className="text-muted-foreground ml-1 text-[11px]">({vh.klasifikasi})</span>
+                            </div>
+                            <span className="text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                              {vh.tipe_alat_rekomendasi}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <h4 className="font-semibold text-sm mb-2">Hambatan ({detail.hamb.length})</h4>
                 {detail.hamb.length === 0 ? <p className="text-sm text-muted-foreground">Tidak ada hambatan tercatat.</p> : (

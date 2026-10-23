@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
-import { Menu, X, BarChart3, Map, Activity, Footprints, Users, Database } from "lucide-react";
+import { Menu, X, BarChart3, Map, Activity, Footprints, Users, Database, ShieldAlert } from "lucide-react";
 import { Button } from "./ui/button";
 import { DataUpdateDialog } from "./DataUpdateDialog";
 
@@ -11,6 +11,7 @@ const NAV = [
   { to: "/hambatan", label: "Analisa Hambatan", icon: <Activity className="w-5 h-5" /> },
   { to: "/alat-bantu", label: "Kebutuhan Alat", icon: <Footprints className="w-5 h-5" /> },
   { to: "/siswa", label: "Daftar Siswa", icon: <Users className="w-5 h-5" /> },
+  { to: "/intervensi", label: "Intervensi Prioritas", icon: <ShieldAlert className="w-5 h-5" /> },
   { to: "#update", label: "Update Data", icon: <Database className="w-5 h-5" />, isAction: true },
 ];
 
@@ -36,6 +37,7 @@ export function NavigationFAB() {
           else if (n.to === "/hambatan") shortLabel = "Jenis Hambatan";
           else if (n.to === "/alat-bantu") shortLabel = "Alat Bantu Khusus";
           else if (n.to === "/siswa") shortLabel = "Data Siswa";
+          else if (n.to === "/intervensi") shortLabel = "Intervensi Prioritas";
           else if (n.to === "#update") shortLabel = "Unggah Data";
 
           const buttonClass = `px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 border border-transparent ${

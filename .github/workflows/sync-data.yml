@@ -12,6 +12,7 @@ on:
           - all
           - pbs-only
           - rapor-only
+          - verval-only
   push:
     paths:
       - "*.xlsx"
@@ -44,6 +45,8 @@ jobs:
             node scripts/sync-data.mjs --pbs-only
           elif [ "$TARGET" = "rapor-only" ]; then
             node scripts/sync-data.mjs --rapor-only
+          elif [ "$TARGET" = "verval-only" ]; then
+            node scripts/sync-data.mjs --verval-only
           else
             node scripts/sync-data.mjs
           fi

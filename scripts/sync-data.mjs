@@ -78,6 +78,48 @@ async function initTables() {
       domain TEXT
     )
   `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS verval_lanjutan (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      siswa_id INTEGER,
+      nisn TEXT,
+      nik_siswa TEXT,
+      nama_siswa TEXT,
+      sumber_instansi TEXT,
+      alamat_siswa TEXT,
+      alamat_sekolah TEXT,
+      nama_ibu TEXT,
+      nik_ibu TEXT,
+      nama_ayah TEXT,
+      nik_ayah TEXT,
+      status_patju360 TEXT,
+      metode_verval TEXT,
+      desil_nasional TEXT,
+      kategori_desil TEXT,
+      desil_awal TEXT,
+      pkh TEXT,
+      bansos_sembako TEXT,
+      beasiswa_bskm TEXT,
+      pbi_jk TEXT,
+      status_medis TEXT,
+      disabilitas_dtsen TEXT,
+      puskesmas_terdekat TEXT,
+      jarak_km REAL
+    )
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS verval_hambatan (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      siswa_id INTEGER,
+      nisn TEXT,
+      jenis_hambatan TEXT,
+      klasifikasi TEXT,
+      tipe_alat_rekomendasi TEXT
+    )
+  `);
+
   try { await client.execute("ALTER TABLE rapor_spm ADD COLUMN delta REAL"); } catch (_) {}
   try { await client.execute("ALTER TABLE rapor_spm ADD COLUMN domain TEXT"); } catch (_) {}
 
@@ -88,6 +130,12 @@ async function initTables() {
   await client.execute(`CREATE INDEX IF NOT EXISTS idx_rapor_jenjang ON rapor_spm(jenjang)`);
   await client.execute(`CREATE INDEX IF NOT EXISTS idx_rapor_npsn ON rapor_spm(npsn)`);
   await client.execute(`CREATE INDEX IF NOT EXISTS idx_rapor_indikator ON rapor_spm(indikator)`);
+  await client.execute(`CREATE INDEX IF NOT EXISTS idx_verval_nisn ON verval_lanjutan(nisn)`);
+  await client.execute(`CREATE INDEX IF NOT EXISTS idx_verval_siswa_id ON verval_lanjutan(siswa_id)`);
+  await client.execute(`CREATE INDEX IF NOT EXISTS idx_verval_desil ON verval_lanjutan(desil_nasional)`);
+  await client.execute(`CREATE INDEX IF NOT EXISTS idx_verval_instansi ON verval_lanjutan(sumber_instansi)`);
+  await client.execute(`CREATE INDEX IF NOT EXISTS idx_verval_hambatan_nisn ON verval_hambatan(nisn)`);
+  await client.execute(`CREATE INDEX IF NOT EXISTS idx_verval_hambatan_siswa_id ON verval_hambatan(siswa_id)`);
 }
 
 function parseVal(v) {
@@ -292,6 +340,153 @@ async function syncRapor(filePath) {
   console.log(`\n✅ Selesai impor Rapor SPM: total ${countRapor} sekolah.`);
 }
 
+async function syncVerval() {
+  console.log("\n📂 Memulai sinkronisasi data Verval Lanjutan (PATJU 360 / DTSEN)...");
+  
+  // 1. Ambil peta NISN -> siswa_id dari tabel siswa
+  const siswaRows = await client.execute("SELECT id, nisn FROM siswa");
+  const nisnMap = new Map();
+  for (const s of siswaRows.rows) {
+    if (s.nisn) nisnMap.set(String(s.nisn).trim(), s.id);
+  }
+
+  // File paths
+  const dikbudCandidates = [
+    "./VERVAL LANJUTAN DATA PBS/VERVAL_LANJUTAN_PBS_DIKBUD_PATJU360.xlsx",
+    "./VERVAL LANJUTAN DATA PBS/Dikbud tes.xlsx"
+  ];
+  const kemenagCandidates = [
+    "./VERVAL LANJUTAN DATA PBS/VERVAL_LANJUTAN_PBS_KEMENAG_PATJU360.xlsx",
+    "./VERVAL LANJUTAN DATA PBS/Kemenag Tes.xlsx"
+  ];
+
+  const dikbudFile = dikbudCandidates.find(p => fs.existsSync(p));
+  const kemenagFile = kemenagCandidates.find(p => fs.existsSync(p));
+
+  if (!dikbudFile && !kemenagFile) {
+    console.warn("⚠️ File Verval Dikbud/Kemenag tidak ditemukan di folder VERVAL LANJUTAN DATA PBS.");
+    return;
+  }
+
+  // Bersihkan data lama
+  await client.execute("DELETE FROM verval_hambatan");
+  await client.execute("DELETE FROM verval_lanjutan");
+
+  const kecs = ['KEDIRI', 'GERUNG', 'BATULAYAR', 'GUNUNGSARI', 'KURIPAN', 'LABUAPI', 'LINGSAR', 'NARMADA', 'SEKOTONG', 'LEMBAR'];
+  const filesToProcess = [];
+  if (dikbudFile) filesToProcess.push({ path: dikbudFile, instansi: "DIKBUD" });
+  if (kemenagFile) filesToProcess.push({ path: kemenagFile, instansi: "KEMENAG" });
+
+  let totalSiswaVerval = 0;
+  let totalHambatanVerval = 0;
+  const BATCH_SIZE = 100;
+  let batchStatements = [];
+
+  for (const { path: filePath, instansi } of filesToProcess) {
+    const isKemenag = instansi === "KEMENAG";
+    console.log(`📊 Membaca file ${instansi}: ${filePath}...`);
+    const wb = XLSX.readFile(filePath);
+
+    for (const k of kecs) {
+      if (!wb.Sheets[k]) continue;
+      const raw = XLSX.utils.sheet_to_json(wb.Sheets[k], { header: 1 });
+      let curStudent = null;
+
+      for (let r = 6; r < raw.length; r++) {
+        const row = raw[r];
+        if (!row || !row.length) continue;
+
+        const no = row[0];
+        const nama = row[1];
+        if (no !== undefined && no !== null && no !== '' && nama) {
+          const nisn = String(row[3] || '').trim();
+          const siswaId = nisnMap.get(nisn) || null;
+          const jarakVal = typeof row[isKemenag ? 30 : 24] === 'number' 
+            ? row[isKemenag ? 30 : 24] 
+            : parseFloat(String(row[isKemenag ? 30 : 24] || '0').replace(',', '.')) || 0;
+
+          curStudent = {
+            siswa_id: siswaId,
+            nisn: nisn,
+            nik_siswa: String(row[2] || '').trim(),
+            nama_siswa: String(nama).trim(),
+            sumber_instansi: instansi,
+            alamat_siswa: isKemenag ? String(row[9] || '').trim() : null,
+            alamat_sekolah: isKemenag ? String(row[10] || '').trim() : null,
+            nama_ibu: isKemenag ? String(row[11] || '').trim() : null,
+            nik_ibu: isKemenag ? String(row[12] || '').trim() : null,
+            nama_ayah: isKemenag ? String(row[13] || '').trim() : null,
+            nik_ayah: isKemenag ? String(row[14] || '').trim() : null,
+            status_patju360: String(row[isKemenag ? 15 : 9] || '').trim(),
+            metode_verval: String(row[isKemenag ? 16 : 10] || '').trim(),
+            desil_nasional: String(row[isKemenag ? 17 : 11] || '').trim(),
+            kategori_desil: String(row[isKemenag ? 18 : 12] || '').trim(),
+            desil_awal: String(row[isKemenag ? 19 : 13] || '').trim(),
+            pkh: String(row[isKemenag ? 20 : 14] || '').trim(),
+            bansos_sembako: String(row[isKemenag ? 21 : 15] || '').trim(),
+            beasiswa_bskm: String(row[isKemenag ? 22 : 16] || '').trim(),
+            pbi_jk: String(row[isKemenag ? 23 : 17] || '').trim(),
+            status_medis: String(row[isKemenag ? 24 : 18] || '').trim(),
+            disabilitas_dtsen: String(row[isKemenag ? 25 : 19] || '').trim(),
+            puskesmas_terdekat: String(row[isKemenag ? 29 : 23] || '').trim(),
+            jarak_km: jarakVal
+          };
+
+          batchStatements.push({
+            sql: `INSERT INTO verval_lanjutan (
+              siswa_id, nisn, nik_siswa, nama_siswa, sumber_instansi,
+              alamat_siswa, alamat_sekolah, nama_ibu, nik_ibu, nama_ayah, nik_ayah,
+              status_patju360, metode_verval, desil_nasional, kategori_desil, desil_awal,
+              pkh, bansos_sembako, beasiswa_bskm, pbi_jk, status_medis, disabilitas_dtsen,
+              puskesmas_terdekat, jarak_km
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [
+              curStudent.siswa_id, curStudent.nisn, curStudent.nik_siswa, curStudent.nama_siswa, curStudent.sumber_instansi,
+              curStudent.alamat_siswa, curStudent.alamat_sekolah, curStudent.nama_ibu, curStudent.nik_ibu, curStudent.nama_ayah, curStudent.nik_ayah,
+              curStudent.status_patju360, curStudent.metode_verval, curStudent.desil_nasional, curStudent.kategori_desil, curStudent.desil_awal,
+              curStudent.pkh, curStudent.bansos_sembako, curStudent.beasiswa_bskm, curStudent.pbi_jk, curStudent.status_medis, curStudent.disabilitas_dtsen,
+              curStudent.puskesmas_terdekat, curStudent.jarak_km
+            ]
+          });
+          totalSiswaVerval++;
+        }
+
+        const hCol = isKemenag ? 26 : 20;
+        const kCol = isKemenag ? 27 : 21;
+        const tCol = isKemenag ? 28 : 22;
+
+        if (curStudent && row[hCol]) {
+          batchStatements.push({
+            sql: `INSERT INTO verval_hambatan (siswa_id, nisn, jenis_hambatan, klasifikasi, tipe_alat_rekomendasi)
+                  VALUES (?, ?, ?, ?, ?)`,
+            args: [
+              curStudent.siswa_id,
+              curStudent.nisn,
+              String(row[hCol] || '').trim(),
+              String(row[kCol] || 'BERAT').trim(),
+              String(row[tCol] || '').trim()
+            ]
+          });
+          totalHambatanVerval++;
+        }
+
+        if (batchStatements.length >= BATCH_SIZE) {
+          await client.batch(batchStatements, "write");
+          process.stdout.write(`\r⏳ Mengimpor data Verval: ${totalSiswaVerval} siswa, ${totalHambatanVerval} rincian hambatan...`);
+          batchStatements = [];
+        }
+      }
+    }
+  }
+
+  if (batchStatements.length > 0) {
+    await client.batch(batchStatements, "write");
+    batchStatements = [];
+  }
+
+  console.log(`\n✅ Selesai impor Verval Lanjutan: ${totalSiswaVerval} siswa, ${totalHambatanVerval} rincian hambatan.`);
+}
+
 async function main() {
   await initTables();
 
@@ -313,9 +508,12 @@ async function main() {
     await syncPbs(pbsPath);
   } else if (args.includes("--rapor-only")) {
     await syncRapor(raporPath);
+  } else if (args.includes("--verval-only")) {
+    await syncVerval();
   } else {
     await syncPbs(pbsPath);
     await syncRapor(raporPath);
+    await syncVerval();
   }
 
   console.log("\n🎉 Seluruh proses sinkronisasi data selesai dengan sukses!");
