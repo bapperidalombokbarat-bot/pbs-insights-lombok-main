@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import logoBlue from "@/assets/logo-lobar-blue.png";
+import { useMathCaptcha, MathCaptchaBox } from "./MathCaptcha";
 
 interface IntroProps {
   onEnter: () => void;
@@ -7,10 +8,25 @@ interface IntroProps {
 
 export function Intro({ onEnter }: IntroProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const {
+    captcha,
+    inputVal,
+    setInputVal,
+    error,
+    refresh,
+    verify,
+  } = useMathCaptcha();
 
   useEffect(() => {
     setIsVisible(true);
   }, []);
+
+  const handleEnterClick = () => {
+    if (!verify()) {
+      return;
+    }
+    onEnter();
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#0f172a] text-slate-100 font-['Poppins']">
@@ -65,16 +81,29 @@ export function Intro({ onEnter }: IntroProps) {
         </h1>
         
         {/* Subjudul Daerah */}
-        <h2 className="animate-text-3 text-sm md:text-base text-slate-300 mb-10 font-medium leading-relaxed">
+        <h2 className="animate-text-3 text-sm md:text-base text-slate-300 mb-6 font-medium leading-relaxed">
             Sistem Data <span className="text-white font-bold">PE</span>serta <span className="text-white font-bold">D</span>idik Inkl<span className="text-white font-bold">U</span>si<br/>
             <span className="text-white font-bold">L</span>ombok Barat <span className="text-white font-bold">I</span>nteraktif
         </h2>
 
+        {/* Verifikasi Anti-Bot Aritmatika */}
+        <div className="mb-6 text-left">
+          <MathCaptchaBox
+            captcha={captcha}
+            inputVal={inputVal}
+            setInputVal={setInputVal}
+            onRefresh={refresh}
+            error={error}
+            dark={true}
+            label="Verifikasi Keamanan Manusia (Anti-Bot AI)"
+          />
+        </div>
+
         {/* Tombol / Indikator Masuk */}
         <div className="animate-button">
             <button 
-                onClick={onEnter}
-                className="group relative px-8 py-3 w-full bg-gradient-to-r from-blue-600 to-sky-500 rounded-lg font-semibold text-white overflow-hidden shadow-[0_0_20px_rgba(56,189,248,0.3)] transition-all hover:shadow-[0_0_30px_rgba(56,189,248,0.6)] hover:-translate-y-1"
+                onClick={handleEnterClick}
+                className="group relative px-8 py-3 w-full bg-gradient-to-r from-blue-600 to-sky-500 rounded-lg font-semibold text-white overflow-hidden shadow-[0_0_20px_rgba(56,189,248,0.3)] transition-all hover:shadow-[0_0_30px_rgba(56,189,248,0.6)] hover:-translate-y-1 cursor-pointer"
             >
                 <span className="relative z-10 flex items-center justify-center gap-2">
                     Masuk ke Dashboard

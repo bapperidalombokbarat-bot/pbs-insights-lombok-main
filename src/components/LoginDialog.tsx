@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
+import { useMathCaptcha, MathCaptchaBox } from "@/components/MathCaptcha";
 import {
   Dialog,
   DialogContent,
@@ -71,8 +72,20 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isManualMode, setIsManualMode] = useState(false);
 
+  const {
+    captcha,
+    inputVal: captchaInput,
+    setInputVal: setCaptchaInput,
+    error: captchaError,
+    refresh: refreshCaptcha,
+    verify: verifyCaptcha,
+  } = useMathCaptcha();
+
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!verifyCaptcha()) {
+      return;
+    }
     if (!username || !password) {
       setError("Silakan isi username dan password.");
       return;
@@ -85,20 +98,27 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       onOpenChange(false);
       setUsername("");
       setPassword("");
+      refreshCaptcha();
     } else {
       setError(res.message || "Gagal masuk.");
+      refreshCaptcha();
     }
   };
 
   const handleQuick = async (roleUser: string) => {
+    if (!verifyCaptcha()) {
+      return;
+    }
     setIsLoading(true);
     setError(null);
     const success = await quickLogin(roleUser);
     setIsLoading(false);
     if (success) {
       onOpenChange(false);
+      refreshCaptcha();
     } else {
       setError("Gagal masuk dengan akun terpilih.");
+      refreshCaptcha();
     }
   };
 
@@ -189,6 +209,14 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                   </button>
                 </div>
 
+                <MathCaptchaBox
+                  captcha={captcha}
+                  inputVal={captchaInput}
+                  setInputVal={setCaptchaInput}
+                  onRefresh={refreshCaptcha}
+                  error={captchaError}
+                />
+
                 <div className="grid grid-cols-1 gap-2.5">
                   {ROLES_INFO.map((r) => (
                     <button
@@ -258,6 +286,14 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                     Password default format: <code>[nama_opd]2026</code> (contoh: <code>bapperida2026</code>).
                   </span>
                 </div>
+
+                <MathCaptchaBox
+                  captcha={captcha}
+                  inputVal={captchaInput}
+                  setInputVal={setCaptchaInput}
+                  onRefresh={refreshCaptcha}
+                  error={captchaError}
+                />
 
                 <div className="pt-2 flex items-center justify-end gap-2">
                   <Button
