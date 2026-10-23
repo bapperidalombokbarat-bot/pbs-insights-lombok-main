@@ -6,6 +6,7 @@ export interface AuthContextType {
   isLoggedIn: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   quickLogin: (username: string) => Promise<boolean>;
+  loginAsGuest: () => void;
   logout: () => void;
   availableRoles: UserSession[];
   // Permissions
@@ -19,6 +20,7 @@ export interface AuthContextType {
   isDikbud: boolean;
   isDinsos: boolean;
   isInovasi: boolean;
+  isGuest: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,6 +82,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   };
 
+  const loginAsGuest = () => {
+    const guestSession: UserSession = {
+      id: 0,
+      username: "tamu",
+      nama_lengkap: "Tamu Publik / Masyarakat",
+      instansi: "Pemerintah Kab. Lombok Barat (Mode Publik)",
+      role: "GUEST",
+      avatar: "👁️",
+      keterangan: "Akses Peninjauan Publik Read-Only (Hak Edit & NIK/NISN Terproteksi)",
+    };
+    setUser(guestSession);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(guestSession));
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
@@ -91,11 +107,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isDikbud = role === "DIKBUD";
   const isDinsos = role === "DINSOS";
   const isInovasi = role === "INOVASI";
+  const isGuest = role === "GUEST" || !user;
 
   const canEditMedis = isBapperida || isDikes;
   const canEditBskm = isBapperida || isDikbud;
   const canEditBansos = isBapperida || isDinsos;
-  const canUnlockPrivacy = !!user && !isInovasi;
+  const canUnlockPrivacy = !!user && user.role !== "GUEST" && !isInovasi;
   const canUploadData = isBapperida;
 
   return (
@@ -105,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoggedIn: !!user,
         login,
         quickLogin,
+        loginAsGuest,
         logout,
         availableRoles,
         canEditMedis,
@@ -116,7 +134,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isDikes,
         isDikbud,
         isDinsos,
-        isInovasi
+        isInovasi,
+        isGuest,
       }}
     >
       {children}

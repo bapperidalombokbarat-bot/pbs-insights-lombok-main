@@ -16,18 +16,19 @@ export default function Layout() {
   const { user } = useAuth();
 
   useEffect(() => {
-    const hasSeenIntro = sessionStorage.getItem("pbs_has_seen_intro");
-    if (hasSeenIntro) {
+    // Jika belum login (user === null), wajib tampilkan Splash Screen / Portal Login
+    if (!user) {
+      setShowIntro(true);
+    } else {
       setShowIntro(false);
     }
-  }, []);
+  }, [user]);
 
   const handleEnter = () => {
-    sessionStorage.setItem("pbs_has_seen_intro", "true");
     setShowIntro(false);
   };
 
-  if (showIntro) {
+  if (showIntro || !user) {
     return <Intro onEnter={handleEnter} />;
   }
 

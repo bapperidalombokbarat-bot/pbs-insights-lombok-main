@@ -16,7 +16,7 @@ interface LoginDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const ROLES_INFO = [
+export const ROLES_INFO = [
   {
     username: "bapperida",
     nama: "Bapperida Kab. Lombok Barat",
