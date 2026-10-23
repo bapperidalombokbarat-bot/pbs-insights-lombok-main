@@ -146,6 +146,19 @@ async function initDbDirect() {
       tipe_alat_rekomendasi TEXT
     )
   `);
+
+  await runDirect(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      nama_lengkap TEXT NOT NULL,
+      instansi TEXT NOT NULL,
+      role TEXT NOT NULL,
+      avatar TEXT,
+      keterangan TEXT
+    )
+  `);
   
   try { await runDirect("ALTER TABLE rapor_spm ADD COLUMN delta REAL"); } catch(e) {}
   try { await runDirect("ALTER TABLE rapor_spm ADD COLUMN domain TEXT"); } catch(e) {}
@@ -198,6 +211,21 @@ async function initDbDirect() {
     
     for (const t of tools) {
       await runDirect("INSERT INTO alat_bantu (jenis_hambatan, nama_alat, kategori, deskripsi) VALUES (?, ?, ?, ?)", t);
+    }
+  }
+
+  const userCount = await queryOneDirect<{ n: number }>("SELECT COUNT(*) as n FROM users");
+  if (userCount && userCount.n === 0) {
+    console.log("Inisialisasi akun pengguna OPD standar di Turso...");
+    const defaultUsers = [
+      ['bapperida', 'bapperida2026', 'Administrator Bapperida', 'Bapperida Kab. Lombok Barat', 'BAPPERIDA', '🏛️', 'Super Admin & Koordinator TKPKD Lombok Barat'],
+      ['dikes', 'dikes2026', 'Tim Medis & FKTP DikesPPKB', 'Dinas Kesehatan, Pengendalian Penduduk dan KB', 'DIKES', '🩺', 'Verifikator Medis, Diagnosa Klinis & Rujukan FKTP Puskesmas/RSUD'],
+      ['dikbud', 'dikbud2026', 'Tim Pendidikan Inklusif Dikbud', 'Dinas Pendidikan dan Kebudayaan (+ Kemenag)', 'DIKBUD', '🎓', 'Verifikator Beasiswa BSKM & Layanan Sekolah Inklusi'],
+      ['dinsos', 'dinsos2026', 'Tim Perlindungan Sosial Dinsos', 'Dinas Sosial Kab. Lombok Barat', 'DINSOS', '🤝', 'Verifikator Bantuan Alat Bantu Disabilitas & Bansos DTSEN'],
+      ['inovasi', 'inovasi2026', 'Technical Advisor INOVASI NTB', 'Kemitraan Indonesia - Australia (INOVASI NTB)', 'INOVASI', '🌏', 'Monitoring, Evaluasi Analitis & Kebijakan Pendidikan Inklusif']
+    ];
+    for (const u of defaultUsers) {
+      await runDirect("INSERT OR REPLACE INTO users (username, password, nama_lengkap, instansi, role, avatar, keterangan) VALUES (?, ?, ?, ?, ?, ?, ?)", u);
     }
   }
 }
@@ -288,6 +316,54 @@ export async function updateVervalMedis(id: number, data: {
     data.keterangan || null,
     id
   ]);
+}
+
+export type UserRole = "BAPPERIDA" | "DIKES" | "DIKBUD" | "DINSOS" | "INOVASI" | "GUEST";
+
+export interface UserSession {
+  id: number;
+  username: string;
+  nama_lengkap: string;
+  instansi: string;
+  role: UserRole;
+  avatar: string;
+  keterangan: string;
+}
+
+/**
+ * Autentikasi pengguna berdasarkan username & password
+ */
+export async function authenticateUser(username: string, password: string): Promise<UserSession | null> {
+  const res = await queryOne<any>(
+    "SELECT id, username, nama_lengkap, instansi, role, avatar, keterangan FROM users WHERE LOWER(username) = LOWER(?) AND password = ?",
+    [username.trim(), password.trim()]
+  );
+  if (!res) return null;
+  return {
+    id: res.id,
+    username: res.username,
+    nama_lengkap: res.nama_lengkap,
+    instansi: res.instansi,
+    role: res.role as UserRole,
+    avatar: res.avatar,
+    keterangan: res.keterangan
+  };
+}
+
+/**
+ * Ambil daftar akun OPD yang tersedia untuk quick-login / demo
+ */
+export async function getAvailableRoles(): Promise<UserSession[]> {
+  const rows = await query<any>("SELECT id, username, nama_lengkap, instansi, role, avatar, keterangan FROM users ORDER BY id ASC");
+  return rows.map(r => ({
+    id: r.id,
+    username: r.username,
+    nama_lengkap: r.nama_lengkap,
+    instansi: r.instansi,
+    role: r.role as UserRole,
+    avatar: r.avatar,
+    keterangan: r.keterangan
+  }));
 }
 
 // Utility untuk format angka

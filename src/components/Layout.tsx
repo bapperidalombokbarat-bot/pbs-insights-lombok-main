@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
 import { Outlet } from "@tanstack/react-router";
 import { useYear } from "@/lib/YearContext";
+import { useAuth } from "@/lib/AuthContext";
 import logo from "@/assets/logo-lobar.png";
 import logoKemdikbud from "@/assets/logo-kemdikbud.png";
 import { NavigationFAB } from "./NavigationFAB";
 import { ThemeToggle } from "./ThemeToggle";
 import { Intro } from "./Intro";
+import { LoginDialog } from "./LoginDialog";
 
 export default function Layout() {
   const [showIntro, setShowIntro] = useState(true);
+  const [loginOpen, setLoginOpen] = useState(false);
   const { selectedYear, setSelectedYear } = useYear();
+  const { user } = useAuth();
 
   useEffect(() => {
     const hasSeenIntro = sessionStorage.getItem("pbs_has_seen_intro");
@@ -47,7 +51,7 @@ export default function Layout() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
           <img src={logoKemdikbud} alt="Logo Kemendikdasmen" className="w-10 h-10 md:w-14 md:h-14 object-contain drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] hidden sm:block" />
           <div className="hidden sm:flex items-center bg-white/10 text-white border border-white/20 rounded-full backdrop-blur-sm px-1">
             <span className="text-[10px] md:text-xs font-bold pl-3 pr-2 py-2">KEMENDIKDASMEN</span>
@@ -62,6 +66,31 @@ export default function Layout() {
               ))}
             </select>
           </div>
+
+          {/* User Role / Login OPD Button */}
+          {user ? (
+            <button
+              onClick={() => setLoginOpen(true)}
+              className="flex items-center gap-1.5 sm:gap-2 bg-white/15 hover:bg-white/25 border border-white/30 text-white rounded-full py-1 px-2.5 sm:px-3 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+              title={`${user.nama_lengkap} (${user.role}) - Klik untuk profil / keluar`}
+            >
+              <span className="text-sm sm:text-base">{user.avatar || "👤"}</span>
+              <span className="hidden md:inline font-bold text-[11px] sm:text-xs max-w-[120px] truncate">{user.instansi || user.nama_lengkap}</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-white/25 text-white font-black uppercase tracking-wider">
+                {user.role}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setLoginOpen(true)}
+              className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-slate-900 border border-amber-300 font-black text-xs rounded-full py-1.5 px-3 transition-all shadow-md active:scale-95 cursor-pointer"
+              title="Masuk Akun OPD (Bapperida, Dikes, Dikbud, Dinsos, INOVASI)"
+            >
+              <span>🔑</span>
+              <span className="hidden sm:inline">Masuk OPD</span>
+            </button>
+          )}
+
           <ThemeToggle />
         </div>
       </header>
@@ -73,6 +102,7 @@ export default function Layout() {
       </main>
 
       <NavigationFAB />
+      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       
       <footer className="py-8 px-6 text-center text-[11px] text-muted-foreground border-t border-border mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">

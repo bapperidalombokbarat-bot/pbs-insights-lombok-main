@@ -41,6 +41,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 import { useEffect } from "react";
 import { initDb } from "@/lib/db";
+import { AuthProvider } from "@/lib/AuthContext";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -58,7 +59,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <YearProvider>
-        <Layout />
+        <AuthProvider>
+          <Layout />
+        </AuthProvider>
       </YearProvider>
     </QueryClientProvider>
   );

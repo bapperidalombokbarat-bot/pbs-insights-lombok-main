@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useYear } from "@/lib/YearContext";
+import { useAuth } from "@/lib/AuthContext";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
 import * as XLSX from "xlsx";
 import { Eye, EyeOff, ShieldAlert } from "lucide-react";
@@ -29,16 +30,25 @@ function SiswaPage() {
   const [detail, setDetail] = useState<any>(null);
   const [isAllUnlocked, setIsAllUnlocked] = useState(false);
   const { selectedYear } = useYear();
+  const { user, canUnlockPrivacy } = useAuth();
 
   const handleToggleUnlock = () => {
     if (isAllUnlocked) {
       setIsAllUnlocked(false);
+      return;
+    }
+    if (user) {
+      if (canUnlockPrivacy) {
+        setIsAllUnlocked(true);
+      } else {
+        alert("Sesuai kebijakan perlindungan privasi data kemitraan (UU PDP & Kebijakan Program INOVASI), NISN siswa dirahasiakan untuk akun peninjau kebijakan / evaluasi.");
+      }
     } else {
-      const pwd = prompt("Masukkan password untuk membuka sensor NIK & NISN semua siswa:");
+      const pwd = prompt("Masukkan PIN otoritas atau masuk dengan akun OPD Pemkab:");
       if (pwd === "17041958") {
         setIsAllUnlocked(true);
       } else if (pwd !== null) {
-        alert("Password salah!");
+        alert("PIN tidak valid! Silakan gunakan tombol 'Masuk OPD' di bagian atas untuk login instansi resmi.");
       }
     }
   };

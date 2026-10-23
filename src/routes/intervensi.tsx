@@ -2,13 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useYear } from "@/lib/YearContext";
+import { useAuth } from "@/lib/AuthContext";
 import { query, fmt, updateVervalMedis } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
 import * as XLSX from "xlsx";
 import { 
   ShieldAlert, Download, Eye, EyeOff, Search, RotateCcw, 
   MapPin, HeartPulse, GraduationCap, CheckCircle2, XCircle, 
-  User, School, Users, Activity, FileSpreadsheet, Stethoscope, Save, Check
+  User, School, Users, Activity, FileSpreadsheet, Stethoscope, Save, Check, Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +49,7 @@ export const Route = createFileRoute("/intervensi")({
 
 function IntervensiPage() {
   const { selectedYear } = useYear();
+  const { user, canEditMedis, canUnlockPrivacy, isInovasi } = useAuth();
   const [q, setQ] = useState("");
   const [kec, setKec] = useState("Semua");
   const [instansi, setInstansi] = useState("Semua");
@@ -87,7 +89,7 @@ function IntervensiPage() {
   };
 
   const handleSaveMed = async () => {
-    if (!detailSiswa) return;
+    if (!detailSiswa || !canEditMedis) return;
     setIsSavingMed(true);
     setSaveSuccess(false);
     try {
@@ -110,12 +112,21 @@ function IntervensiPage() {
   const handleToggleUnlock = () => {
     if (isUnlocked) {
       setIsUnlocked(false);
+      return;
+    }
+
+    if (user) {
+      if (canUnlockPrivacy) {
+        setIsUnlocked(true);
+      } else {
+        alert("Sesuai standar perlindungan privasi data kemitraan (UU PDP & Pedoman Kerjasama INOVASI), NIK & NISN siswa dirahasiakan untuk akun peninjau kebijakan / evaluasi.");
+      }
     } else {
-      const pwd = prompt("Masukkan password otoritas untuk membuka sensor NIK & NISN:");
+      const pwd = prompt("Masukkan PIN otoritas atau masuk dengan akun OPD Pemkab:");
       if (pwd === "17041958") {
         setIsUnlocked(true);
       } else if (pwd !== null) {
-        alert("Password salah!");
+        alert("PIN tidak valid! Silakan gunakan tombol 'Masuk OPD' di bagian atas untuk login instansi resmi.");
       }
     }
   };
@@ -1244,10 +1255,11 @@ function IntervensiPage() {
                     </label>
                     <input
                       type="text"
+                      disabled={!canEditMedis}
                       value={medForm.dokter_pemeriksa}
                       onChange={(e) => setMedForm({ ...medForm, dokter_pemeriksa: e.target.value })}
                       placeholder="Contoh: dr. Ahmad, Sp.A / dr. Umum Puskesmas..."
-                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/50"
                     />
                   </div>
 
@@ -1257,10 +1269,11 @@ function IntervensiPage() {
                     </label>
                     <input
                       type="text"
+                      disabled={!canEditMedis}
                       value={medForm.diagnosa}
                       onChange={(e) => setMedForm({ ...medForm, diagnosa: e.target.value })}
                       placeholder="Contoh: Cerebral Palsy Spastik + Malnutrisi..."
-                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/50"
                     />
                   </div>
 
@@ -1269,11 +1282,12 @@ function IntervensiPage() {
                       Tindakan Medis / Terapi
                     </label>
                     <textarea
+                      disabled={!canEditMedis}
                       value={medForm.tindakan}
                       onChange={(e) => setMedForm({ ...medForm, tindakan: e.target.value })}
                       placeholder="Contoh: Fisioterapi mingguan di RSUD Tripat, pemberian suplemen, terapi wicara..."
                       rows={2}
-                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/50"
                     />
                   </div>
 
@@ -1282,9 +1296,10 @@ function IntervensiPage() {
                       Status Rujukan
                     </label>
                     <select
+                      disabled={!canEditMedis}
                       value={medForm.status_rujukan}
                       onChange={(e) => setMedForm({ ...medForm, status_rujukan: e.target.value })}
-                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/50"
                     >
                       <option value="Belum Ada Rujukan">Belum Ada Rujukan</option>
                       <option value="Penanganan Selesai di FKTP (Puskesmas)">Penanganan Selesai di FKTP (Puskesmas)</option>
@@ -1302,26 +1317,38 @@ function IntervensiPage() {
                     </label>
                     <input
                       type="text"
+                      disabled={!canEditMedis}
                       value={medForm.keterangan}
                       onChange={(e) => setMedForm({ ...medForm, keterangan: e.target.value })}
                       placeholder="Catatan tindak lanjut untuk OPD / sekolah / TKSK..."
-                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/50"
                     />
                   </div>
                 </div>
 
-                <div className="pt-2 flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground italic">
-                    Perubahan langsung tersimpan ke database PATJU 360 &amp; tabel intervensi.
-                  </span>
-                  <Button
-                    onClick={handleSaveMed}
-                    disabled={isSavingMed}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    {isSavingMed ? "Menyimpan..." : "Simpan Rekam Medis"}
-                  </Button>
+                <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  {canEditMedis ? (
+                    <>
+                      <span className="text-[10px] text-muted-foreground italic">
+                        Perubahan langsung tersimpan ke database PATJU 360 &amp; tabel intervensi.
+                      </span>
+                      <Button
+                        onClick={handleSaveMed}
+                        disabled={isSavingMed}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        {isSavingMed ? "Menyimpan..." : "Simpan Rekam Medis"}
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="w-full p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                      <Lock className="w-4 h-4 shrink-0 text-amber-600" />
+                      <span>
+                        Mode Tinjauan: Pengisian lembar rekam medis klinis &amp; rujukan FKTP khusus untuk akun <strong>Dinas Kesehatan &amp; PPKB</strong> atau <strong>Bapperida</strong>.
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

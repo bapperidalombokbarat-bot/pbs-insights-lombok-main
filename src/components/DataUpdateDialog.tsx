@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 import { HAMBATAN_COLS, run, saveDb, batch } from "@/lib/db";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
 import { 
   Dialog, 
   DialogContent, 
@@ -11,7 +12,7 @@ import {
   DialogFooter
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { FileUp, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileUp, Loader2, CheckCircle2, AlertCircle, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 interface DataUpdateDialogProps {
@@ -20,6 +21,7 @@ interface DataUpdateDialogProps {
 }
 
 export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) {
+  const { user, canUploadData, quickLogin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [progress, setProgress] = useState("");
@@ -249,55 +251,88 @@ export function DataUpdateDialog({ open, onOpenChange }: DataUpdateDialogProps) 
         <DialogHeader>
           <DialogTitle>Update Data PBS (Online)</DialogTitle>
           <DialogDescription>
-            Upload file Excel untuk menyinkronkan data langsung ke database online.
+            Sinkronisasi data master Rekapitulasi PBS dan Rapor Pendidikan langsung ke database online.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-border rounded-xl bg-muted/30 min-h-[200px]">
-          {status === "idle" && (
-            <>
-              <FileUp className="w-12 h-12 text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground mb-4 text-center px-6">
-                Pilih file Excel rekapitulasi PBS.
+        {!canUploadData ? (
+          <div className="py-6 px-3 flex flex-col items-center text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-3xl">
+              🔒
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-bold text-base text-foreground">Otoritas Terbatas</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed max-w-sm">
+                Pengunggahan dan penggantian data master PBS / Rapor Pendidikan hanya dapat dilakukan oleh Administrator <strong>Bapperida Kabupaten Lombok Barat</strong> (Koordinator TKPKD).
               </p>
-              <input 
-                type="file" 
-                id="excel-upload" 
-                accept=".xlsx, .xls" 
-                className="hidden" 
-                onChange={handleFileUpload}
-              />
-              <Button asChild>
-                <label htmlFor="excel-upload" className="cursor-pointer">Pilih File</label>
+            </div>
+            <div className="p-3 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground w-full">
+              Sesi saat ini: <strong className="text-foreground">{user ? `${user.nama_lengkap} (${user.role})` : "Tamu (Belum Masuk)"}</strong>
+            </div>
+            <div className="flex gap-2 w-full pt-2">
+              <Button
+                className="flex-1 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={async () => {
+                  const ok = await quickLogin("bapperida");
+                  if (ok) {
+                    toast.success("Berhasil beralih ke akun Administrator Bapperida.");
+                  }
+                }}
+              >
+                Masuk sebagai Bapperida
               </Button>
-            </>
-          )}
-
-          {status === "processing" && (
-            <div className="flex flex-col items-center">
-              <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-              <p className="text-sm font-medium">{progress}</p>
+              <Button variant="outline" className="rounded-xl text-xs" onClick={() => onOpenChange(false)}>
+                Tutup
+              </Button>
             </div>
-          )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-border rounded-xl bg-muted/30 min-h-[200px]">
+            {status === "idle" && (
+              <>
+                <FileUp className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground mb-4 text-center px-6">
+                  Pilih file Excel rekapitulasi PBS atau Rapor SPM.
+                </p>
+                <input 
+                  type="file" 
+                  id="excel-upload" 
+                  accept=".xlsx, .xls" 
+                  className="hidden" 
+                  onChange={handleFileUpload}
+                />
+                <Button asChild>
+                  <label htmlFor="excel-upload" className="cursor-pointer">Pilih File</label>
+                </Button>
+              </>
+            )}
 
-          {status === "success" && (
-            <div className="flex flex-col items-center text-center px-6">
-              <CheckCircle2 className="w-12 h-12 text-green-500 mb-4" />
-              <p className="text-sm font-bold text-green-600 mb-1">Berhasil!</p>
-              <p className="text-xs text-muted-foreground mb-4">Data di database online telah diperbarui.</p>
-              <Button onClick={() => onOpenChange(false)}>Tutup</Button>
-            </div>
-          )}
+            {status === "processing" && (
+              <div className="flex flex-col items-center">
+                <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+                <p className="text-sm font-medium">{progress}</p>
+              </div>
+            )}
 
-          {status === "error" && (
-            <div className="flex flex-col items-center text-center px-6">
-              <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-              <p className="text-sm font-bold text-destructive mb-1">Error</p>
-              <p className="text-xs text-muted-foreground mb-4">Pastikan format file sesuai.</p>
-              <Button variant="outline" onClick={() => setStatus("idle")}>Coba Lagi</Button>
-            </div>
-          )}
-        </div>
+            {status === "success" && (
+              <div className="flex flex-col items-center text-center px-6">
+                <CheckCircle2 className="w-12 h-12 text-green-500 mb-4" />
+                <p className="text-sm font-bold text-green-600 mb-1">Berhasil!</p>
+                <p className="text-xs text-muted-foreground mb-4">Data di database online telah diperbarui.</p>
+                <Button onClick={() => onOpenChange(false)}>Tutup</Button>
+              </div>
+            )}
+
+            {status === "error" && (
+              <div className="flex flex-col items-center text-center px-6">
+                <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+                <p className="text-sm font-bold text-destructive mb-1">Error</p>
+                <p className="text-xs text-muted-foreground mb-4">Pastikan format file sesuai.</p>
+                <Button variant="outline" onClick={() => setStatus("idle")}>Coba Lagi</Button>
+              </div>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
