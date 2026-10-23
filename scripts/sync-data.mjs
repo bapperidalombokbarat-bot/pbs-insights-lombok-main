@@ -105,7 +105,12 @@ async function initTables() {
       status_medis TEXT,
       disabilitas_dtsen TEXT,
       puskesmas_terdekat TEXT,
-      jarak_km REAL
+      jarak_km REAL,
+      dokter_pemeriksa TEXT,
+      diagnosa TEXT,
+      tindakan TEXT,
+      status_rujukan TEXT,
+      keterangan TEXT
     )
   `);
 
@@ -122,6 +127,11 @@ async function initTables() {
 
   try { await client.execute("ALTER TABLE rapor_spm ADD COLUMN delta REAL"); } catch (_) {}
   try { await client.execute("ALTER TABLE rapor_spm ADD COLUMN domain TEXT"); } catch (_) {}
+  try { await client.execute("ALTER TABLE verval_lanjutan ADD COLUMN dokter_pemeriksa TEXT"); } catch (_) {}
+  try { await client.execute("ALTER TABLE verval_lanjutan ADD COLUMN diagnosa TEXT"); } catch (_) {}
+  try { await client.execute("ALTER TABLE verval_lanjutan ADD COLUMN tindakan TEXT"); } catch (_) {}
+  try { await client.execute("ALTER TABLE verval_lanjutan ADD COLUMN status_rujukan TEXT"); } catch (_) {}
+  try { await client.execute("ALTER TABLE verval_lanjutan ADD COLUMN keterangan TEXT"); } catch (_) {}
 
   await client.execute(`CREATE INDEX IF NOT EXISTS idx_siswa_kecamatan ON siswa(kecamatan)`);
   await client.execute(`CREATE INDEX IF NOT EXISTS idx_siswa_jenjang ON siswa(jenjang)`);
@@ -368,6 +378,15 @@ async function syncVerval() {
     return;
   }
 
+  // Simpan data pemeriksaan medis yang sudah pernah diinput agar tidak hilang saat re-sync
+  let existingMedMap = new Map();
+  try {
+    const existingMed = await client.execute("SELECT nisn, dokter_pemeriksa, diagnosa, tindakan, status_rujukan, keterangan FROM verval_lanjutan WHERE dokter_pemeriksa IS NOT NULL OR diagnosa IS NOT NULL OR tindakan IS NOT NULL OR status_rujukan IS NOT NULL OR keterangan IS NOT NULL");
+    for (const em of existingMed.rows) {
+      if (em.nisn) existingMedMap.set(String(em.nisn).trim(), em);
+    }
+  } catch (_) {}
+
   // Bersihkan data lama
   await client.execute("DELETE FROM verval_hambatan");
   await client.execute("DELETE FROM verval_lanjutan");
@@ -432,20 +451,27 @@ async function syncVerval() {
             jarak_km: jarakVal
           };
 
+          const prevMed = existingMedMap.get(nisn) || {};
+
           batchStatements.push({
             sql: `INSERT INTO verval_lanjutan (
               siswa_id, nisn, nik_siswa, nama_siswa, sumber_instansi,
               alamat_siswa, alamat_sekolah, nama_ibu, nik_ibu, nama_ayah, nik_ayah,
               status_patju360, metode_verval, desil_nasional, kategori_desil, desil_awal,
               pkh, bansos_sembako, beasiswa_bskm, pbi_jk, status_medis, disabilitas_dtsen,
-              puskesmas_terdekat, jarak_km
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              puskesmas_terdekat, jarak_km, dokter_pemeriksa, diagnosa, tindakan, status_rujukan, keterangan
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             args: [
               curStudent.siswa_id, curStudent.nisn, curStudent.nik_siswa, curStudent.nama_siswa, curStudent.sumber_instansi,
               curStudent.alamat_siswa, curStudent.alamat_sekolah, curStudent.nama_ibu, curStudent.nik_ibu, curStudent.nama_ayah, curStudent.nik_ayah,
               curStudent.status_patju360, curStudent.metode_verval, curStudent.desil_nasional, curStudent.kategori_desil, curStudent.desil_awal,
               curStudent.pkh, curStudent.bansos_sembako, curStudent.beasiswa_bskm, curStudent.pbi_jk, curStudent.status_medis, curStudent.disabilitas_dtsen,
-              curStudent.puskesmas_terdekat, curStudent.jarak_km
+              curStudent.puskesmas_terdekat, curStudent.jarak_km,
+              prevMed.dokter_pemeriksa || null,
+              prevMed.diagnosa || null,
+              prevMed.tindakan || null,
+              prevMed.status_rujukan || null,
+              prevMed.keterangan || null
             ]
           });
           totalSiswaVerval++;

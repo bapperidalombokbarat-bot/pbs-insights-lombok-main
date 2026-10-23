@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useYear } from "@/lib/YearContext";
-import { query, fmt } from "@/lib/db";
+import { query, fmt, updateVervalMedis } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
 import * as XLSX from "xlsx";
 import { 
   ShieldAlert, Download, Eye, EyeOff, Search, RotateCcw, 
   MapPin, HeartPulse, GraduationCap, CheckCircle2, XCircle, 
-  User, School, Users, Activity, FileSpreadsheet
+  User, School, Users, Activity, FileSpreadsheet, Stethoscope, Save, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,10 +62,55 @@ function IntervensiPage() {
   const [jarakKat, setJarakKat] = useState("Semua");
   const [activeTab, setActiveTab] = useState<"tabel" | "desil" | "kesehatan" | "alat">("tabel");
   
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
   const [detailSiswa, setDetailSiswa] = useState<any>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
+
+  // Form Rekam Medis & Intervensi Klinis
+  const [medForm, setMedForm] = useState({
+    dokter_pemeriksa: "",
+    diagnosa: "",
+    tindakan: "",
+    status_rujukan: "Belum Ada Rujukan",
+    keterangan: "",
+  });
+  const [isSavingMed, setIsSavingMed] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleOpenDetail = (r: any) => {
+    setDetailSiswa(r);
+    setMedForm({
+      dokter_pemeriksa: r.dokter_pemeriksa || "",
+      diagnosa: r.diagnosa || "",
+      tindakan: r.tindakan || "",
+      status_rujukan: r.status_rujukan || "Belum Ada Rujukan",
+      keterangan: r.keterangan || "",
+    });
+    setSaveSuccess(false);
+  };
+
+  const handleSaveMed = async () => {
+    if (!detailSiswa) return;
+    setIsSavingMed(true);
+    setSaveSuccess(false);
+    try {
+      await updateVervalMedis(detailSiswa.id, medForm);
+      setDetailSiswa((prev: any) => ({
+        ...prev,
+        ...medForm
+      }));
+      await queryClient.invalidateQueries({ queryKey: ["verval-list"] });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3500);
+    } catch (err: any) {
+      console.error("Gagal simpan medis:", err);
+      alert("Gagal menyimpan rekam medis: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setIsSavingMed(false);
+    }
+  };
 
   const handleToggleUnlock = () => {
     if (isUnlocked) {
@@ -281,7 +326,7 @@ function IntervensiPage() {
     },
   });
 
-  // Ekspor Data ke Excel
+  // Ekspor Data ke Excel Lengkap (Sosial, Kesehatan, Rekam Medis)
   const handleExportExcel = async () => {
     const { whereClause, args } = filterParams;
     const allRows = await query<any>(`
@@ -295,24 +340,39 @@ function IntervensiPage() {
         s.satuan_pendidikan as "Satuan Pendidikan",
         s.kecamatan as "Kecamatan",
         vl.sumber_instansi as "Instansi",
-        vl.desil_nasional as "Desil Nasional (DTSEN)",
-        vl.kategori_desil as "Kategori Desil",
-        vl.beasiswa_bskm as "Penerima BSKM Pemda",
-        vl.pbi_jk as "PBI-JK (BPJS Gratis Pemda)",
-        vl.pkh as "Penerima PKH",
-        vl.bansos_sembako as "Penerima Sembako",
-        vl.status_medis as "Status Medis Kronis",
-        vl.disabilitas_dtsen as "Status Disabilitas DTSEN",
-        vl.puskesmas_terdekat as "Puskesmas Terdekat",
-        vl.jarak_km as "Jarak ke Puskesmas (KM)",
+        vl.alamat_siswa as "Alamat Domisili Siswa",
+        vl.alamat_sekolah as "Alamat Sekolah",
         vl.nama_ayah as "Nama Ayah",
         vl.nik_ayah as "NIK Ayah",
         vl.nama_ibu as "Nama Ibu",
-        vl.nik_ibu as "NIK Ibu"
+        vl.nik_ibu as "NIK Ibu",
+        vl.status_patju360 as "Status Terdata PATJU 360",
+        vl.metode_verval as "Metode Verval",
+        vl.desil_nasional as "Desil Nasional (Valid DTSEN)",
+        vl.kategori_desil as "Kategori Desil Nasional",
+        vl.desil_awal as "Desil Awal (Data PBS)",
+        vl.pkh as "Status Bansos PKH",
+        vl.bansos_sembako as "Status Bansos Sembako",
+        vl.beasiswa_bskm as "Status Beasiswa BSKM Pemda",
+        vl.pbi_jk as "Status BPJS PBI-JK Pemda",
+        vl.status_medis as "Status Medis (Penyakit Kronis DTSEN)",
+        vl.disabilitas_dtsen as "Status Disabilitas DTSEN",
+        (SELECT GROUP_CONCAT(jenis_hambatan || ' (' || klasifikasi || ')', '; ') FROM verval_hambatan WHERE nisn = vl.nisn) as "Hambatan Berat PBS",
+        (SELECT GROUP_CONCAT(tipe_alat_rekomendasi, '; ') FROM verval_hambatan WHERE nisn = vl.nisn) as "Rekomendasi Alat Bantu",
+        vl.puskesmas_terdekat as "Puskesmas Rujukan Terdekat (FKTP)",
+        vl.jarak_km as "Jarak ke Puskesmas (KM)",
+        vl.dokter_pemeriksa as "Dokter Pemeriksa",
+        vl.diagnosa as "Diagnosa Medis",
+        vl.tindakan as "Tindakan Medis / Terapi",
+        vl.status_rujukan as "Status Rujukan",
+        vl.keterangan as "Keterangan Intervensi"
       FROM verval_lanjutan vl
       JOIN siswa s ON s.id = vl.siswa_id
       ${whereClause}
-      ORDER BY vl.nama_siswa ASC
+      ORDER BY 
+        CASE WHEN vl.desil_nasional IN ('1', '2') THEN 0 ELSE 1 END,
+        CAST(vl.desil_nasional AS INTEGER) ASC,
+        vl.nama_siswa ASC
     `, args);
 
     const ws = XLSX.utils.json_to_sheet(allRows);
@@ -569,27 +629,30 @@ function IntervensiPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-muted/60 border-b border-border text-muted-foreground font-bold uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-4 w-12 text-center">No</th>
-                  <th className="py-3 px-4">Nama Siswa &amp; Identitas</th>
-                  <th className="py-3 px-4">Satuan Pendidikan</th>
-                  <th className="py-3 px-4">Kecamatan</th>
-                  <th className="py-3 px-4 text-center">Instansi</th>
-                  <th className="py-3 px-4 text-center">Status Desil DTSEN</th>
-                  <th className="py-3 px-4 text-center">Intervensi Bansos</th>
-                  <th className="py-3 px-4">Puskesmas &amp; Jarak</th>
-                  <th className="py-3 px-4 text-center w-28">Aksi</th>
+                  <th className="py-3 px-3 w-10 text-center">No</th>
+                  <th className="py-3 px-3 min-w-[190px]">Nama Siswa &amp; Identitas</th>
+                  <th className="py-3 px-3 min-w-[170px]">Pendidikan &amp; Wilayah</th>
+                  <th className="py-3 px-3 text-center min-w-[130px]">Status Desil (DTSEN)</th>
+                  <th className="py-3 px-3 text-center min-w-[170px]">Status Bantuan Sosial</th>
+                  <th className="py-3 px-3 min-w-[200px]">Status Kesehatan &amp; FKTP</th>
+                  <th className="py-3 px-3 min-w-[140px]">Dokter Pemeriksa</th>
+                  <th className="py-3 px-3 min-w-[150px]">Diagnosa</th>
+                  <th className="py-3 px-3 min-w-[160px]">Tindakan</th>
+                  <th className="py-3 px-3 min-w-[130px]">Status Rujukan</th>
+                  <th className="py-3 px-3 min-w-[140px]">Keterangan</th>
+                  <th className="py-3 px-3 text-center w-28 sticky right-0 bg-card/95 shadow-sm">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={12} className="py-12 text-center text-muted-foreground">
                       Memuat data intervensi...
                     </td>
                   </tr>
                 ) : vervalData?.rows?.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={12} className="py-12 text-center text-muted-foreground">
                       Tidak ada data yang cocok dengan filter yang dipilih.
                     </td>
                   </tr>
@@ -612,94 +675,156 @@ function IntervensiPage() {
 
                     return (
                       <tr key={r.id} className="hover:bg-muted/40 transition-colors">
-                        <td className="py-3.5 px-4 text-center font-mono text-muted-foreground text-[11px]">
+                        <td className="py-3 px-3 text-center font-mono text-muted-foreground text-[11px]">
                           {rowNum}
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3 px-3">
                           <div className="font-bold text-foreground">
                             {maskName(r.nama_siswa, isUnlocked)}
                           </div>
                           <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
                             NISN: {r.nisn} · NIK: {maskNik(r.nik_siswa, isUnlocked)}
                           </div>
-                          {hambatanList.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {hambatanList.slice(0, 2).map((h: any, i: number) => (
-                                <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-primary/10 text-primary">
-                                  {h.jenis_hambatan}
-                                </span>
-                              ))}
-                              {hambatanList.length > 2 && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] bg-muted text-muted-foreground font-semibold">
-                                  +{hambatanList.length - 2} lagi
-                                </span>
-                              )}
-                            </div>
-                          )}
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            JK: <span className="font-semibold text-foreground">{r.jenis_kelamin || "—"}</span>
+                          </div>
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3 px-3">
                           <div className="font-medium text-foreground">{r.satuan_pendidikan}</div>
-                          <div className="text-[10px] text-muted-foreground">{r.jenjang} · {r.tingkat_kelas}</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {r.jenjang} · {r.tingkat_kelas} · {r.kecamatan}
+                          </div>
+                          <div className="mt-1">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black tracking-wide ${
+                              r.sumber_instansi === "KEMENAG"
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                : "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30"
+                            }`}>
+                              {r.sumber_instansi}
+                            </span>
+                          </div>
                         </td>
-                        <td className="py-3.5 px-4 font-semibold text-foreground">
-                          {r.kecamatan}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide ${
-                            r.sumber_instansi === "KEMENAG"
-                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                              : "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30"
-                          }`}>
-                            {r.sumber_instansi}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className={`px-2.5 py-1 rounded-lg text-xs inline-block ${desilColor}`}>
+                        <td className="py-3 px-3 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-lg text-xs inline-block ${desilColor}`}>
                             {r.desil_nasional === "1" ? "Desil 1 (Ekstrem)" :
                              r.desil_nasional === "2" ? "Desil 2 (Sangat Miskin)" :
                              r.desil_nasional ? `Desil ${r.desil_nasional}` : "Belum Ada Desil"}
                           </span>
+                          <div className="text-[10px] text-muted-foreground font-medium mt-1">
+                            {r.kategori_desil || "Reguler"}
+                          </div>
+                          {r.desil_awal && (
+                            <div className="text-[9px] text-muted-foreground/80 mt-0.5">
+                              Awal: Desil {r.desil_awal}
+                            </div>
+                          )}
                         </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex flex-col items-center gap-1">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              r.beasiswa_bskm?.startsWith("YA")
-                                ? "bg-emerald-500/15 text-emerald-600"
-                                : "bg-rose-500/10 text-rose-600"
+                        <td className="py-3 px-3">
+                          <div className="grid grid-cols-2 gap-1 text-[9px] font-bold">
+                            <span className={`px-1.5 py-0.5 rounded text-center ${
+                              r.pkh?.startsWith("YA") ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-slate-500/10 text-slate-500"
                             }`}>
-                              BSKM: {r.beasiswa_bskm?.startsWith("YA") ? "YA" : "TIDAK"}
+                              PKH: {r.pkh || "TIDAK"}
                             </span>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              r.pbi_jk === "YA"
-                                ? "bg-emerald-500/15 text-emerald-600"
-                                : "bg-rose-500/10 text-rose-600"
+                            <span className={`px-1.5 py-0.5 rounded text-center ${
+                              r.bansos_sembako?.startsWith("YA") ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-slate-500/10 text-slate-500"
                             }`}>
-                              PBI-JK: {r.pbi_jk === "YA" ? "YA" : "TIDAK"}
+                              Sembako: {r.bansos_sembako || "TIDAK"}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-center ${
+                              r.beasiswa_bskm?.startsWith("YA") ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600"
+                            }`}>
+                              BSKM: {r.beasiswa_bskm?.startsWith("YA") ? "SUDAH" : "BELUM"}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-center ${
+                              r.pbi_jk === "YA" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600"
+                            }`}>
+                              PBI-JK: {r.pbi_jk === "YA" ? "TERCOVER" : "BELUM"}
                             </span>
                           </div>
                         </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-semibold text-foreground flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                            <span className="truncate max-w-[150px]">{r.puskesmas_terdekat || "—"}</span>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
-                            Jarak: <span className="font-bold text-foreground">{r.jarak_km} KM</span>
-                            {r.jarak_km > 5.0 && (
-                              <span className="ml-1 px-1 rounded text-[9px] bg-amber-500/15 text-amber-600 font-bold">
-                                Jauh
+                        <td className="py-3 px-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1 font-semibold text-foreground text-[11px]">
+                              <HeartPulse className="w-3 h-3 text-rose-500 shrink-0" />
+                              <span className="truncate max-w-[170px]" title={r.status_medis}>
+                                {r.status_medis && r.status_medis !== "TIDAK ADA PENYAKIT KRONIS" ? r.status_medis : "Tidak Ada Kronis"}
                               </span>
+                            </div>
+                            {r.disabilitas_dtsen && r.disabilitas_dtsen !== "TIDAK TERCATAT DI DTSEN (TERVERIFIKASI PBS)" && (
+                              <div className="text-[10px] text-indigo-600 dark:text-indigo-400 line-clamp-1 max-w-[170px]" title={r.disabilitas_dtsen}>
+                                DTSEN: {r.disabilitas_dtsen}
+                              </div>
                             )}
+                            {hambatanList.length > 0 && (
+                              <div className="text-[9px] text-primary line-clamp-1 max-w-[170px]" title={hambatanList.map((h:any)=>`${h.jenis_hambatan}: ${h.tipe_alat_rekomendasi}`).join(", ")}>
+                                Alat: {hambatanList[0]?.tipe_alat_rekomendasi}
+                              </div>
+                            )}
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-primary shrink-0" />
+                              <span className="truncate max-w-[110px]" title={r.puskesmas_terdekat}>{r.puskesmas_terdekat || "—"}</span>
+                              <span className="font-bold text-foreground">({r.jarak_km} KM)</span>
+                            </div>
                           </div>
                         </td>
-                        <td className="py-3.5 px-4 text-center">
+                        <td className="py-3 px-3">
+                          {r.dokter_pemeriksa ? (
+                            <div className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
+                              <Stethoscope className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span className="line-clamp-2 max-w-[130px]" title={r.dokter_pemeriksa}>{r.dokter_pemeriksa}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                              Belum diperiksa
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          {r.diagnosa ? (
+                            <span className="font-medium text-foreground line-clamp-2 max-w-[140px] text-[11px]" title={r.diagnosa}>
+                              {r.diagnosa}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          {r.tindakan ? (
+                            <span className="text-[11px] text-foreground line-clamp-2 max-w-[150px]" title={r.tindakan}>
+                              {r.tindakan}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          {r.status_rujukan ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/20 inline-block line-clamp-2" title={r.status_rujukan}>
+                              {r.status_rujukan}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          {r.keterangan ? (
+                            <span className="text-[11px] text-muted-foreground line-clamp-2 max-w-[130px]" title={r.keterangan}>
+                              {r.keterangan}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center sticky right-0 bg-card/95 shadow-sm">
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setDetailSiswa({ ...r, hambatanList })}
-                            className="rounded-xl text-xs h-8 px-2.5 font-bold hover:bg-primary hover:text-primary-foreground"
+                            onClick={() => handleOpenDetail({ ...r, hambatanList })}
+                            className="rounded-xl text-[11px] h-8 px-2.5 font-bold hover:bg-primary hover:text-primary-foreground border-primary/40 text-primary"
                           >
-                            Detail Profil
+                            Kelola Medis
                           </Button>
                         </td>
                       </tr>
@@ -923,62 +1048,90 @@ function IntervensiPage() {
                 </div>
               )}
 
-              {/* Status Kemiskinan DTSEN & PATJU 360 */}
-              <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 text-xs space-y-2">
+              {/* Status Sosial, Kemiskinan DTSEN & Intervensi Bansos Lengkap */}
+              <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 text-xs space-y-2.5">
                 <span className="font-bold text-xs flex items-center gap-1.5 text-blue-700 dark:text-blue-400">
                   <ShieldAlert className="w-4 h-4" />
-                  Status Kemiskinan &amp; DTSEN Versi 2
+                  Status Kesejahteraan Sosial &amp; Bantuan Sosial Terpadu
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
-                  <div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                  <div className="bg-background/80 p-2 rounded-lg border border-border/50">
                     <span className="text-[10px] text-muted-foreground block">Desil Nasional</span>
                     <span className="font-black text-sm text-foreground">
                       {detailSiswa.desil_nasional === "1" ? "Desil 1 (Ekstrem)" :
                        detailSiswa.desil_nasional === "2" ? "Desil 2 (Sangat Miskin)" :
                        detailSiswa.desil_nasional ? `Desil ${detailSiswa.desil_nasional}` : "Belum Ada"}
                     </span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5">{detailSiswa.kategori_desil || "Reguler"}</span>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block">Metode Verval</span>
-                    <span className="font-semibold text-foreground">{detailSiswa.metode_verval || "—"}</span>
+                  <div className="bg-background/80 p-2 rounded-lg border border-border/50">
+                    <span className="text-[10px] text-muted-foreground block">Desil Awal (PBS)</span>
+                    <span className="font-bold text-foreground">
+                      {detailSiswa.desil_awal ? `Desil ${detailSiswa.desil_awal}` : "—"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5">Metode: {detailSiswa.metode_verval || "DTSEN V2"}</span>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block">Terdata PATJU 360</span>
-                    <span className="font-semibold text-foreground">{detailSiswa.status_patju360 || "TRUE"}</span>
-                  </div>
-                  <div>
+                  <div className="bg-background/80 p-2 rounded-lg border border-border/50">
                     <span className="text-[10px] text-muted-foreground block">Beasiswa BSKM</span>
                     <span className={`font-bold ${detailSiswa.beasiswa_bskm?.startsWith("YA") ? "text-emerald-600" : "text-rose-600"}`}>
                       {detailSiswa.beasiswa_bskm || "TIDAK"}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block">BPJS PBI-JK</span>
+                  <div className="bg-background/80 p-2 rounded-lg border border-border/50">
+                    <span className="text-[10px] text-muted-foreground block">BPJS PBI-JK Pemda</span>
                     <span className={`font-bold ${detailSiswa.pbi_jk === "YA" ? "text-emerald-600" : "text-rose-600"}`}>
                       {detailSiswa.pbi_jk === "YA" ? "SUDAH TERCOVER" : "BELUM TERCOVER"}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block">Penyakit Kronis</span>
-                    <span className="font-semibold text-foreground">{detailSiswa.status_medis || "—"}</span>
+                  <div className="bg-background/80 p-2 rounded-lg border border-border/50">
+                    <span className="text-[10px] text-muted-foreground block">Bansos PKH</span>
+                    <span className={`font-bold ${detailSiswa.pkh?.startsWith("YA") ? "text-emerald-600" : "text-slate-600"}`}>
+                      {detailSiswa.pkh || "TIDAK"}
+                    </span>
+                  </div>
+                  <div className="bg-background/80 p-2 rounded-lg border border-border/50">
+                    <span className="text-[10px] text-muted-foreground block">Bansos Sembako / BPNT</span>
+                    <span className={`font-bold ${detailSiswa.bansos_sembako?.startsWith("YA") ? "text-emerald-600" : "text-slate-600"}`}>
+                      {detailSiswa.bansos_sembako || "TIDAK"}
+                    </span>
+                  </div>
+                  <div className="bg-background/80 p-2 rounded-lg border border-border/50 col-span-2">
+                    <span className="text-[10px] text-muted-foreground block">Status Terdata PATJU 360</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      Terverifikasi Valid ({detailSiswa.status_patju360 || "TRUE"})
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Fasilitas Kesehatan Rujukan */}
-              <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs">
-                <span className="font-bold text-xs flex items-center gap-1.5 text-amber-700 dark:text-amber-400 mb-2">
+              {/* Status Kesehatan & Fasilitas Layanan (FKTP) Lengkap */}
+              <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs space-y-2.5">
+                <span className="font-bold text-xs flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
                   <HeartPulse className="w-4 h-4" />
-                  Rujukan Fasilitas Kesehatan (FKTP)
+                  Status Kesehatan &amp; Aksesibilitas Fasilitas Kesehatan (FKTP)
                 </span>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-bold text-foreground">{detailSiswa.puskesmas_terdekat || "—"}</span>
-                    <span className="text-[11px] text-muted-foreground block">Puskesmas Rujukan Terdekat</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <div className="bg-background/80 p-2.5 rounded-lg border border-border/50">
+                    <span className="text-[10px] text-muted-foreground block">Penyakit Kronis (DTSEN)</span>
+                    <span className="font-bold text-foreground block mt-0.5">
+                      {detailSiswa.status_medis || "TIDAK ADA PENYAKIT KRONIS"}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-base font-black text-primary">{detailSiswa.jarak_km} KM</span>
-                    <span className="text-[10px] text-muted-foreground block">Jarak Euclidean GPS</span>
+                  <div className="bg-background/80 p-2.5 rounded-lg border border-border/50">
+                    <span className="text-[10px] text-muted-foreground block">Disabilitas (DTSEN)</span>
+                    <span className="font-bold text-foreground block mt-0.5">
+                      {detailSiswa.disabilitas_dtsen || "TERVERIFIKASI PBS"}
+                    </span>
+                  </div>
+                  <div className="bg-background/80 p-2.5 rounded-lg border border-border/50 col-span-1 sm:col-span-2 flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-bold text-foreground">{detailSiswa.puskesmas_terdekat || "—"}</span>
+                      <span className="text-[11px] text-muted-foreground block">Puskesmas Rujukan Terdekat (FKTP)</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-base font-black text-primary">{detailSiswa.jarak_km} KM</span>
+                      <span className="text-[10px] text-muted-foreground block">Jarak Euclidean GPS</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1006,6 +1159,109 @@ function IntervensiPage() {
                       </span>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* FORMULIR REKAM MEDIS & INTERVENSI KLINIS */}
+              <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/30 text-xs space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                    <Stethoscope className="w-4 h-4 text-emerald-600" />
+                    Lembar Rekam Medis &amp; Tindak Lanjut Klinis
+                  </span>
+                  {saveSuccess && (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 text-white flex items-center gap-1 animate-pulse">
+                      <Check className="w-3.5 h-3.5" />
+                      Berhasil Disimpan
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-foreground mb-1">
+                      Dokter Pemeriksa
+                    </label>
+                    <input
+                      type="text"
+                      value={medForm.dokter_pemeriksa}
+                      onChange={(e) => setMedForm({ ...medForm, dokter_pemeriksa: e.target.value })}
+                      placeholder="Contoh: dr. Ahmad, Sp.A / dr. Umum Puskesmas..."
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-foreground mb-1">
+                      Diagnosa Medis
+                    </label>
+                    <input
+                      type="text"
+                      value={medForm.diagnosa}
+                      onChange={(e) => setMedForm({ ...medForm, diagnosa: e.target.value })}
+                      placeholder="Contoh: Cerebral Palsy Spastik + Malnutrisi..."
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-foreground mb-1">
+                      Tindakan Medis / Terapi
+                    </label>
+                    <textarea
+                      value={medForm.tindakan}
+                      onChange={(e) => setMedForm({ ...medForm, tindakan: e.target.value })}
+                      placeholder="Contoh: Fisioterapi mingguan di RSUD Tripat, pemberian suplemen, terapi wicara..."
+                      rows={2}
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-foreground mb-1">
+                      Status Rujukan
+                    </label>
+                    <select
+                      value={medForm.status_rujukan}
+                      onChange={(e) => setMedForm({ ...medForm, status_rujukan: e.target.value })}
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                    >
+                      <option value="Belum Ada Rujukan">Belum Ada Rujukan</option>
+                      <option value="Penanganan Selesai di FKTP (Puskesmas)">Penanganan Selesai di FKTP (Puskesmas)</option>
+                      <option value="Rujuk RSUD Patut Patuh Patju (Tripat)">Rujuk RSUD Patut Patuh Patju (Tripat)</option>
+                      <option value="Rujuk RSUP NTB">Rujuk RSUP NTB</option>
+                      <option value="Kunjungan Rumah (Home Care)">Kunjungan Rumah (Home Care)</option>
+                      <option value="Kontrol Rutin Berkala">Kontrol Rutin Berkala</option>
+                      <option value="Rekomendasi Alat Bantu Khusus">Rekomendasi Alat Bantu Khusus</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-foreground mb-1">
+                      Keterangan Intervensi
+                    </label>
+                    <input
+                      type="text"
+                      value={medForm.keterangan}
+                      onChange={(e) => setMedForm({ ...medForm, keterangan: e.target.value })}
+                      placeholder="Catatan tindak lanjut untuk OPD / sekolah / TKSK..."
+                      className="w-full p-2 bg-background border border-border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/40"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground italic">
+                    Perubahan langsung tersimpan ke database PATJU 360 &amp; tabel intervensi.
+                  </span>
+                  <Button
+                    onClick={handleSaveMed}
+                    disabled={isSavingMed}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5 shadow"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {isSavingMed ? "Menyimpan..." : "Simpan Rekam Medis"}
+                  </Button>
                 </div>
               </div>
 

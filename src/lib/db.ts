@@ -127,7 +127,12 @@ async function initDbDirect() {
       status_medis TEXT,
       disabilitas_dtsen TEXT,
       puskesmas_terdekat TEXT,
-      jarak_km REAL
+      jarak_km REAL,
+      dokter_pemeriksa TEXT,
+      diagnosa TEXT,
+      tindakan TEXT,
+      status_rujukan TEXT,
+      keterangan TEXT
     )
   `);
 
@@ -144,6 +149,11 @@ async function initDbDirect() {
   
   try { await runDirect("ALTER TABLE rapor_spm ADD COLUMN delta REAL"); } catch(e) {}
   try { await runDirect("ALTER TABLE rapor_spm ADD COLUMN domain TEXT"); } catch(e) {}
+  try { await runDirect("ALTER TABLE verval_lanjutan ADD COLUMN dokter_pemeriksa TEXT"); } catch(e) {}
+  try { await runDirect("ALTER TABLE verval_lanjutan ADD COLUMN diagnosa TEXT"); } catch(e) {}
+  try { await runDirect("ALTER TABLE verval_lanjutan ADD COLUMN tindakan TEXT"); } catch(e) {}
+  try { await runDirect("ALTER TABLE verval_lanjutan ADD COLUMN status_rujukan TEXT"); } catch(e) {}
+  try { await runDirect("ALTER TABLE verval_lanjutan ADD COLUMN keterangan TEXT"); } catch(e) {}
 
   await runDirect(`CREATE INDEX IF NOT EXISTS idx_siswa_kecamatan ON siswa(kecamatan)`);
   await runDirect(`CREATE INDEX IF NOT EXISTS idx_siswa_jenjang ON siswa(jenjang)`);
@@ -254,6 +264,30 @@ export async function batch(statements: { sql: string, args: any[] }[]) {
  */
 export async function initDb() {
   await serverInitDb();
+}
+
+/**
+ * Memperbarui catatan pemeriksaan medis & rujukan untuk siswa verval
+ */
+export async function updateVervalMedis(id: number, data: {
+  dokter_pemeriksa?: string | null;
+  diagnosa?: string | null;
+  tindakan?: string | null;
+  status_rujukan?: string | null;
+  keterangan?: string | null;
+}) {
+  await run(`
+    UPDATE verval_lanjutan 
+    SET dokter_pemeriksa = ?, diagnosa = ?, tindakan = ?, status_rujukan = ?, keterangan = ?
+    WHERE id = ?
+  `, [
+    data.dokter_pemeriksa || null,
+    data.diagnosa || null,
+    data.tindakan || null,
+    data.status_rujukan || null,
+    data.keterangan || null,
+    id
+  ]);
 }
 
 // Utility untuk format angka

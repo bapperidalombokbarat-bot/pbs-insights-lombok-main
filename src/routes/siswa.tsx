@@ -436,6 +436,13 @@ function SiswaPage() {
                     </div>
                   </div>
 
+                  {detail.verval.disabilitas_dtsen && detail.verval.disabilitas_dtsen !== "TIDAK TERCATAT DI DTSEN (TERVERIFIKASI PBS)" && (
+                    <div className="bg-background/90 p-2.5 rounded-lg border border-border/50 text-xs">
+                      <span className="text-[10px] text-muted-foreground block font-bold uppercase">Disabilitas DTSEN:</span>
+                      <span className="font-semibold text-indigo-700 dark:text-indigo-400 mt-0.5 block">{detail.verval.disabilitas_dtsen}</span>
+                    </div>
+                  )}
+
                   <div className="bg-background/90 p-2.5 rounded-lg border border-border/50 text-xs space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Puskesmas Rujukan:</span>
@@ -462,6 +469,30 @@ function SiswaPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Rekam Medis & Tindak Lanjut */}
+                  {(detail.verval.dokter_pemeriksa || detail.verval.diagnosa || detail.verval.tindakan || detail.verval.status_rujukan || detail.verval.keterangan) && (
+                    <div className="bg-emerald-100/50 dark:bg-emerald-950/40 p-2.5 rounded-lg border border-emerald-300 dark:border-emerald-800 text-xs space-y-1">
+                      <div className="font-bold text-emerald-800 dark:text-emerald-300 mb-1 flex items-center gap-1">
+                        <span>🩺 Rekam Medis &amp; Rujukan Klinis:</span>
+                      </div>
+                      {detail.verval.dokter_pemeriksa && (
+                        <div><span className="text-muted-foreground">Dokter Pemeriksa:</span> <span className="font-semibold text-foreground">{detail.verval.dokter_pemeriksa}</span></div>
+                      )}
+                      {detail.verval.diagnosa && (
+                        <div><span className="text-muted-foreground">Diagnosa:</span> <span className="font-semibold text-foreground">{detail.verval.diagnosa}</span></div>
+                      )}
+                      {detail.verval.tindakan && (
+                        <div><span className="text-muted-foreground">Tindakan:</span> <span className="font-semibold text-foreground">{detail.verval.tindakan}</span></div>
+                      )}
+                      {detail.verval.status_rujukan && (
+                        <div><span className="text-muted-foreground">Status Rujukan:</span> <span className="font-bold text-sky-700 dark:text-sky-300">{detail.verval.status_rujukan}</span></div>
+                      )}
+                      {detail.verval.keterangan && (
+                        <div><span className="text-muted-foreground">Keterangan:</span> <span className="text-foreground">{detail.verval.keterangan}</span></div>
+                      )}
+                    </div>
+                  )}
 
                   {detail.vervalHamb && detail.vervalHamb.length > 0 && (
                     <div className="pt-1">
