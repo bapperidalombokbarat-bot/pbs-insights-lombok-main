@@ -105,21 +105,11 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     }
   };
 
-  const handleQuick = async (roleUser: string) => {
-    if (!verifyCaptcha()) {
-      return;
-    }
-    setIsLoading(true);
+  const handleSelectOpd = (roleUser: string) => {
+    setUsername(roleUser);
+    setPassword("");
     setError(null);
-    const success = await quickLogin(roleUser);
-    setIsLoading(false);
-    if (success) {
-      onOpenChange(false);
-      refreshCaptcha();
-    } else {
-      setError("Gagal masuk dengan akun terpilih.");
-      refreshCaptcha();
-    }
+    setIsManualMode(true);
   };
 
   return (
@@ -221,7 +211,8 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                   {ROLES_INFO.map((r) => (
                     <button
                       key={r.username}
-                      onClick={() => handleQuick(r.username)}
+                      type="button"
+                      onClick={() => handleSelectOpd(r.username)}
                       disabled={isLoading}
                       className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 cursor-pointer ${r.color}`}
                     >
@@ -245,14 +236,14 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
               <form onSubmit={handleManualLogin} className="space-y-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Masuk dengan Akun Instansi
+                    {username ? `Masuk Akun @${username}` : "Masuk dengan Akun Instansi"}
                   </span>
                   <button
                     type="button"
-                    onClick={() => setIsManualMode(false)}
+                    onClick={() => { setIsManualMode(false); setUsername(""); setPassword(""); }}
                     className="text-xs text-primary hover:underline font-medium"
                   >
-                    ← Kembali ke Akses Cepat
+                    ← Kembali ke Pilihan Instansi
                   </button>
                 </div>
 
@@ -263,7 +254,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                 )}
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">Username</label>
+                  <label className="block text-xs font-semibold text-foreground mb-1">Username Akun</label>
                   <input
                     type="text"
                     value={username}
@@ -281,10 +272,8 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Masukkan password akun..."
                     className="w-full p-2.5 bg-background border border-border rounded-xl text-xs focus:ring-2 focus:ring-primary/40 outline-none"
+                    autoFocus
                   />
-                  <span className="text-[10px] text-muted-foreground mt-1 block">
-                    Password default format: <code>[nama_opd]2026</code> (contoh: <code>bapperida2026</code>).
-                  </span>
                 </div>
 
                 <MathCaptchaBox

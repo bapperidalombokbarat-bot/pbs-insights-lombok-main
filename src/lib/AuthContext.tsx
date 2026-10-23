@@ -64,22 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const quickLogin = async (username: string) => {
-    // Cek daftar role yang sudah dimuat
-    const found = availableRoles.find(r => r.username.toLowerCase() === username.toLowerCase());
-    if (found) {
-      setUser(found);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(found));
-      return true;
+  const quickLogin = async (username: string, password?: string) => {
+    if (!password) {
+      return false;
     }
-    // Fallback autentikasi dengan password default role
-    const res = await authenticateUser(username, `${username}2026`);
-    if (res) {
-      setUser(res);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(res));
-      return true;
-    }
-    return false;
+    const res = await login(username, password);
+    return res.success;
   };
 
   const loginAsGuest = () => {
