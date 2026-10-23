@@ -59,7 +59,7 @@ function IntervensiPage() {
   
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(20);
+  const [perPage, setPerPage] = useState(25);
   const [detailSiswa, setDetailSiswa] = useState<any>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
 
@@ -834,33 +834,94 @@ function IntervensiPage() {
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="p-4 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3 text-xs">
-            <span className="text-muted-foreground">
-              Menampilkan {Math.min(totalRows, (page - 1) * perPage + 1)} - {Math.min(totalRows, page * perPage)} dari {fmt(totalRows)} siswa prioritas
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-lg h-8 px-3"
-              >
-                Sebelumnya
-              </Button>
-              <span className="px-3 py-1 font-bold">
-                {page} / {totalPages}
+          {/* Pagination Interaktif Lengkap */}
+          <div className="p-4 border-t border-border flex flex-col md:flex-row justify-between items-center gap-3 text-xs flex-wrap">
+            <div className="text-muted-foreground flex items-center gap-1.5 flex-wrap">
+              <span>Halaman <strong className="text-foreground">{page}</strong> dari <strong className="text-foreground">{totalPages}</strong></span>
+              <span>·</span>
+              <span>
+                Menampilkan <strong>{totalRows === 0 ? 0 : (page - 1) * perPage + 1}</strong> - <strong>{Math.min(totalRows, page * perPage)}</strong> dari <strong>{fmt(totalRows)}</strong> siswa prioritas
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="rounded-lg h-8 px-3"
-              >
-                Selanjutnya
-              </Button>
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Dropdown Baris per Halaman */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Baris per halaman:</span>
+                <select
+                  value={perPage}
+                  onChange={(e) => {
+                    setPerPage(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="border border-border bg-background rounded-lg px-2.5 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              {/* Tombol Navigasi Halaman */}
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={page <= 1}
+                  onClick={() => setPage(1)}
+                  className="px-2.5 py-1 rounded-lg border border-border text-xs disabled:opacity-30 hover:bg-muted font-bold transition-colors cursor-pointer"
+                  title="Halaman Pertama"
+                >
+                  «
+                </button>
+                <button
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1 rounded-lg border border-border text-xs disabled:opacity-30 hover:bg-muted font-bold transition-colors cursor-pointer"
+                  title="Halaman Sebelumnya"
+                >
+                  ‹
+                </button>
+
+                {/* Page Number Buttons */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .map((p, idx, arr) => {
+                    const prev = arr[idx - 1];
+                    return (
+                      <span key={p} className="flex items-center">
+                        {prev && p - prev > 1 && <span className="px-1 text-muted-foreground text-xs">…</span>}
+                        <button
+                          onClick={() => setPage(p)}
+                          className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            page === p
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "border border-border hover:bg-muted text-foreground"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </span>
+                    );
+                  })}
+
+                <button
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="px-3 py-1 rounded-lg border border-border text-xs disabled:opacity-30 hover:bg-muted font-bold transition-colors cursor-pointer"
+                  title="Halaman Selanjutnya"
+                >
+                  ›
+                </button>
+                <button
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(totalPages)}
+                  className="px-2.5 py-1 rounded-lg border border-border text-xs disabled:opacity-30 hover:bg-muted font-bold transition-colors cursor-pointer"
+                  title="Halaman Terakhir"
+                >
+                  »
+                </button>
+              </div>
             </div>
           </div>
         </div>
