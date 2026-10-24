@@ -5,11 +5,11 @@ import { useYear } from "@/lib/YearContext";
 import { useAuth } from "@/lib/AuthContext";
 import { query, fmt, updateVervalMedis } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
-import * as XLSX from "xlsx";
+import { exportIntervensiToExcel } from "@/lib/exportIntervensiExcel";
 import { 
   ShieldAlert, Download, Eye, EyeOff, Search, RotateCcw, 
   MapPin, HeartPulse, GraduationCap, CheckCircle2, XCircle, 
-  User, School, Users, Activity, FileSpreadsheet, Stethoscope, Save, Check, Lock
+  User, School, Users, Activity, FileSpreadsheet, Stethoscope, Save, Check, Lock, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,6 +79,7 @@ function IntervensiPage() {
   const [perPage, setPerPage] = useState(25);
   const [detailSiswa, setDetailSiswa] = useState<any>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Form Rekam Medis & Intervensi Klinis
   const [medForm, setMedForm] = useState({
@@ -375,73 +376,67 @@ function IntervensiPage() {
     },
   });
 
-  // Ekspor Data ke Excel Lengkap (Sosial, Kesehatan, Rekam Medis)
+  // Ekspor Data ke Excel Lengkap Berformat OPD (Kop Bapperida, Nested Headers, Multi-filter)
   const handleExportExcel = async () => {
-    const { whereClause, args } = filterParams;
-    const allRows = await query<any>(`
-      SELECT 
-        vl.nama_siswa as "Nama Siswa",
-        vl.nik_siswa as "NIK Siswa",
-        vl.nisn as "NISN",
-        s.jenis_kelamin as "Jenis Kelamin",
-        CASE 
-          WHEN vl.sumber_instansi = 'KEMENAG' THEN 
-            CASE 
-              WHEN s.jenjang = 'SD/MI' OR s.jenjang = 'SD' THEN 'MI' 
-              WHEN s.jenjang = 'SMP/MTS' OR s.jenjang = 'SMP' THEN 'MTs' 
-              WHEN s.jenjang = 'TK' THEN 'RA' 
-              ELSE s.jenjang 
-            END
-          ELSE 
-            CASE 
-              WHEN s.jenjang = 'SD/MI' THEN 'SD' 
-              WHEN s.jenjang = 'SMP/MTS' THEN 'SMP' 
-              ELSE s.jenjang 
-            END
-        END as "Jenjang",
-        s.tingkat_kelas as "Kelas",
-        s.satuan_pendidikan as "Satuan Pendidikan",
-        s.kecamatan as "Kecamatan",
-        vl.sumber_instansi as "Instansi",
-        vl.alamat_siswa as "Alamat Domisili Siswa",
-        vl.alamat_sekolah as "Alamat Sekolah",
-        vl.nama_ayah as "Nama Ayah",
-        vl.nik_ayah as "NIK Ayah",
-        vl.nama_ibu as "Nama Ibu",
-        vl.nik_ibu as "NIK Ibu",
-        vl.status_patju360 as "Status Terdata PATJU 360",
-        vl.metode_verval as "Metode Verval",
-        vl.desil_nasional as "Desil Nasional (Valid DTSEN)",
-        vl.kategori_desil as "Kategori Desil Nasional",
-        vl.desil_awal as "Desil Awal (Data PBS)",
-        vl.pkh as "Status Bansos PKH",
-        vl.bansos_sembako as "Status Bansos Sembako",
-        vl.beasiswa_bskm as "Status Beasiswa BSKM Pemda",
-        vl.pbi_jk as "Status BPJS PBI-JK Pemda",
-        vl.status_medis as "Status Medis (Penyakit Kronis DTSEN)",
-        vl.disabilitas_dtsen as "Status Disabilitas DTSEN",
-        (SELECT GROUP_CONCAT(jenis_hambatan || ' (' || klasifikasi || ')', '; ') FROM verval_hambatan WHERE nisn = vl.nisn) as "Hambatan Berat PBS",
-        (SELECT GROUP_CONCAT(tipe_alat_rekomendasi, '; ') FROM verval_hambatan WHERE nisn = vl.nisn) as "Rekomendasi Alat Bantu",
-        vl.puskesmas_terdekat as "Puskesmas Rujukan Terdekat (FKTP)",
-        vl.jarak_km as "Jarak ke Puskesmas (KM)",
-        vl.dokter_pemeriksa as "Dokter Pemeriksa",
-        vl.diagnosa as "Diagnosa Medis",
-        vl.tindakan as "Tindakan Medis / Terapi",
-        vl.status_rujukan as "Status Rujukan",
-        vl.keterangan as "Keterangan Intervensi"
-      FROM verval_lanjutan vl
-      JOIN siswa s ON s.id = vl.siswa_id
-      ${whereClause}
-      ORDER BY 
-        CASE WHEN vl.desil_nasional IN ('1', '2') THEN 0 ELSE 1 END,
-        CAST(vl.desil_nasional AS INTEGER) ASC,
-        vl.nama_siswa ASC
-    `, args);
+    try {
+      setIsExporting(true);
+      const { whereClause, args } = filterParams;
 
-    const ws = XLSX.utils.json_to_sheet(allRows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Intervensi Prioritas");
-    XLSX.writeFile(wb, `Intervensi_Prioritas_PATJU360_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      // 1. Ambil seluruh data yang terfilter tanpa limit pagination
+      const allRows = await query<any>(`
+        SELECT 
+          vl.*,
+          s.satuan_pendidikan,
+          s.kecamatan,
+          s.jenjang,
+          s.tingkat_kelas,
+          s.jenis_kelamin
+        FROM verval_lanjutan vl
+        JOIN siswa s ON s.id = vl.siswa_id
+        ${whereClause}
+        ORDER BY 
+          CASE WHEN vl.desil_nasional IN ('1', '2') THEN 0 ELSE 1 END,
+          CAST(vl.desil_nasional AS INTEGER) ASC,
+          vl.nama_siswa ASC
+      `, args);
+
+      if (!allRows || allRows.length === 0) {
+        alert("Tidak ada data yang sesuai dengan filter untuk diekspor.");
+        return;
+      }
+
+      // 2. Ambil rincian hambatan untuk seluruh siswa terfilter
+      const nisnList = allRows.map((r: any) => r.nisn).filter(Boolean);
+      const hambatanMap = new Map<string, any[]>();
+      if (nisnList.length > 0) {
+        const chunkSize = 500;
+        for (let i = 0; i < nisnList.length; i += chunkSize) {
+          const chunk = nisnList.slice(i, i + chunkSize);
+          const placeholders = chunk.map(() => "?").join(",");
+          const hRows = await query<any>(`
+            SELECT nisn, jenis_hambatan, klasifikasi, tipe_alat_rekomendasi
+            FROM verval_hambatan
+            WHERE nisn IN (${placeholders})
+          `, chunk);
+          for (const h of hRows) {
+            if (!hambatanMap.has(h.nisn)) hambatanMap.set(h.nisn, []);
+            hambatanMap.get(h.nisn)!.push(h);
+          }
+        }
+      }
+
+      // 3. Generate dan unduh file Excel berstandar OPD Bapperida
+      await exportIntervensiToExcel(
+        { q, kec, instansi, jenjang, desil, bskm, pbiJk, jarakKat, selectedYear },
+        allRows,
+        hambatanMap
+      );
+    } catch (err: any) {
+      console.error("Gagal ekspor excel:", err);
+      alert("Gagal mengekspor data ke Excel: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const totalRows = vervalData?.summary?.total_siswa || 0;
@@ -533,11 +528,21 @@ function IntervensiPage() {
             <Button
               variant="outline"
               size="sm"
+              disabled={isExporting}
               onClick={handleExportExcel}
-              className="rounded-xl flex items-center gap-1.5 text-xs font-bold border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+              className="rounded-xl flex items-center gap-1.5 text-xs font-bold border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 disabled:opacity-50"
             >
-              <Download className="w-4 h-4" />
-              Export Excel
+              {isExporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                  Mengekspor...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Export Excel
+                </>
+              )}
             </Button>
             <Button
               variant="ghost"
