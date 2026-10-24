@@ -42,6 +42,20 @@ const maskNisn = (nisn: string, unlocked: boolean) => {
   return nisn.slice(0, 2) + "******" + nisn.slice(-2);
 };
 
+const formatJenjang = (jenjang: string, instansi?: string) => {
+  if (!jenjang) return "—";
+  if (instansi === "KEMENAG") {
+    if (jenjang === "SD/MI" || jenjang === "SD") return "MI";
+    if (jenjang === "SMP/MTS" || jenjang === "SMP") return "MTs";
+    if (jenjang === "TK") return "RA";
+  } else if (instansi === "DIKBUD") {
+    if (jenjang === "SD/MI" || jenjang === "SD") return "SD";
+    if (jenjang === "SMP/MTS" || jenjang === "SMP") return "SMP";
+    if (jenjang === "TK") return "TK";
+  }
+  return jenjang;
+};
+
 export const Route = createFileRoute("/intervensi")({
   head: () => ({ meta: [{ title: "PEDULI | Intervensi Prioritas (PATJU 360) | Lombok Barat" }] }),
   component: IntervensiPage,
@@ -53,6 +67,7 @@ function IntervensiPage() {
   const [q, setQ] = useState("");
   const [kec, setKec] = useState("Semua");
   const [instansi, setInstansi] = useState("Semua");
+  const [jenjang, setJenjang] = useState("Semua");
   const [desil, setDesil] = useState("Semua");
   const [bskm, setBskm] = useState("Semua");
   const [pbiJk, setPbiJk] = useState("Semua");
@@ -135,6 +150,7 @@ function IntervensiPage() {
     setQ("");
     setKec("Semua");
     setInstansi("Semua");
+    setJenjang("Semua");
     setDesil("Semua");
     setBskm("Semua");
     setPbiJk("Semua");
@@ -174,6 +190,33 @@ function IntervensiPage() {
       where.push("vl.sumber_instansi = ?");
       args.push(instansi);
     }
+    if (jenjang !== "Semua") {
+      if (instansi === "DIKBUD") {
+        if (jenjang === "TK") {
+          where.push("s.jenjang = 'TK'");
+        } else if (jenjang === "SD") {
+          where.push("(s.jenjang = 'SD/MI' OR s.jenjang = 'SD')");
+        } else if (jenjang === "SMP") {
+          where.push("(s.jenjang = 'SMP/MTS' OR s.jenjang = 'SMP')");
+        }
+      } else if (instansi === "KEMENAG") {
+        if (jenjang === "RA") {
+          where.push("(s.jenjang = 'TK' OR s.satuan_pendidikan LIKE 'RA%')");
+        } else if (jenjang === "MI") {
+          where.push("(s.jenjang = 'SD/MI' OR s.satuan_pendidikan LIKE 'MI%')");
+        } else if (jenjang === "MTS") {
+          where.push("(s.jenjang = 'SMP/MTS' OR s.satuan_pendidikan LIKE 'MTS%')");
+        }
+      } else {
+        if (jenjang === "TK" || jenjang === "RA") {
+          where.push("(s.jenjang = 'TK' OR s.satuan_pendidikan LIKE 'RA%')");
+        } else if (jenjang === "SD" || jenjang === "MI" || jenjang === "SD/MI") {
+          where.push("(s.jenjang = 'SD/MI' OR s.jenjang = 'SD' OR s.satuan_pendidikan LIKE 'MI%')");
+        } else if (jenjang === "SMP" || jenjang === "MTS" || jenjang === "SMP/MTS") {
+          where.push("(s.jenjang = 'SMP/MTS' OR s.jenjang = 'SMP' OR s.satuan_pendidikan LIKE 'MTS%')");
+        }
+      }
+    }
     if (desil === "1") {
       where.push("vl.desil_nasional = '1'");
     } else if (desil === "2") {
@@ -208,7 +251,7 @@ function IntervensiPage() {
 
     const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
     return { whereClause, args };
-  }, [q, kec, instansi, desil, bskm, pbiJk, jarakKat]);
+  }, [q, kec, instansi, jenjang, desil, bskm, pbiJk, jarakKat]);
 
   // Query Data List & Summary
   const { data: vervalData, isLoading } = useQuery({
@@ -341,7 +384,21 @@ function IntervensiPage() {
         vl.nik_siswa as "NIK Siswa",
         vl.nisn as "NISN",
         s.jenis_kelamin as "Jenis Kelamin",
-        s.jenjang as "Jenjang",
+        CASE 
+          WHEN vl.sumber_instansi = 'KEMENAG' THEN 
+            CASE 
+              WHEN s.jenjang = 'SD/MI' OR s.jenjang = 'SD' THEN 'MI' 
+              WHEN s.jenjang = 'SMP/MTS' OR s.jenjang = 'SMP' THEN 'MTs' 
+              WHEN s.jenjang = 'TK' THEN 'RA' 
+              ELSE s.jenjang 
+            END
+          ELSE 
+            CASE 
+              WHEN s.jenjang = 'SD/MI' THEN 'SD' 
+              WHEN s.jenjang = 'SMP/MTS' THEN 'SMP' 
+              ELSE s.jenjang 
+            END
+        END as "Jenjang",
         s.tingkat_kelas as "Kelas",
         s.satuan_pendidikan as "Satuan Pendidikan",
         s.kecamatan as "Kecamatan",
@@ -494,7 +551,7 @@ function IntervensiPage() {
         </div>
 
         {/* Dropdown Filters */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-2 border-t border-border/60 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-2 border-t border-border/60 text-xs">
           <div>
             <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Kecamatan</label>
             <select
@@ -513,12 +570,48 @@ function IntervensiPage() {
             <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Instansi</label>
             <select
               value={instansi}
-              onChange={(e) => { setInstansi(e.target.value); setPage(1); }}
-              className="w-full p-2 bg-background border border-border rounded-lg text-xs"
+              onChange={(e) => {
+                setInstansi(e.target.value);
+                setJenjang("Semua");
+                setPage(1);
+              }}
+              className="w-full p-2 bg-background border border-border rounded-lg text-xs font-semibold"
             >
-              <option value="Semua">Semua (Dikbud &amp; Kemenag)</option>
-              <option value="DIKBUD">DIKBUD (SD/SMP/TK)</option>
-              <option value="KEMENAG">KEMENAG (Madrasah)</option>
+              <option value="Semua">Semua Instansi</option>
+              <option value="DIKBUD">DIKBUD (TK, SD, SMP)</option>
+              <option value="KEMENAG">KEMENAG (RA, MI, MTs)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+              Jenjang {instansi === "DIKBUD" ? "(Dikbud)" : instansi === "KEMENAG" ? "(Kemenag)" : ""}
+            </label>
+            <select
+              value={jenjang}
+              onChange={(e) => { setJenjang(e.target.value); setPage(1); }}
+              className="w-full p-2 bg-background border border-border rounded-lg text-xs font-medium"
+            >
+              <option value="Semua">Semua Jenjang</option>
+              {instansi === "DIKBUD" ? (
+                <>
+                  <option value="TK">TK (PAUD / TK)</option>
+                  <option value="SD">SD (Sekolah Dasar)</option>
+                  <option value="SMP">SMP (Sekolah Menengah Pertama)</option>
+                </>
+              ) : instansi === "KEMENAG" ? (
+                <>
+                  <option value="RA">RA (Raudhatul Athfal)</option>
+                  <option value="MI">MI (Madrasah Ibtidaiyah)</option>
+                  <option value="MTS">MTs (Madrasah Tsanawiyah)</option>
+                </>
+              ) : (
+                <>
+                  <option value="TK">TK / RA</option>
+                  <option value="SD">SD / MI</option>
+                  <option value="SMP">SMP / MTs</option>
+                </>
+              )}
             </select>
           </div>
 
@@ -698,7 +791,7 @@ function IntervensiPage() {
                         <td className="py-3 px-3">
                           <div className="font-medium text-foreground">{r.satuan_pendidikan}</div>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {r.jenjang} · {r.tingkat_kelas} · {r.kecamatan}
+                            {formatJenjang(r.jenjang, r.sumber_instansi)} · {r.tingkat_kelas} · {r.kecamatan}
                           </div>
                           <div className="mt-1">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-black tracking-wide ${
@@ -1075,7 +1168,7 @@ function IntervensiPage() {
                 </div>
                 <div>
                   <span className="text-[11px] text-muted-foreground block">Jenjang &amp; Kelas</span>
-                  <span className="font-bold text-foreground">{detailSiswa.jenjang} · {detailSiswa.tingkat_kelas}</span>
+                  <span className="font-bold text-foreground">{formatJenjang(detailSiswa.jenjang, detailSiswa.sumber_instansi)} · {detailSiswa.tingkat_kelas}</span>
                 </div>
                 <div>
                   <span className="text-[11px] text-muted-foreground block">Kecamatan</span>
