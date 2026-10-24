@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { useYear } from "@/lib/YearContext";
 import { useAuth } from "@/lib/AuthContext";
 import { query, fmt, HAMBATAN_SHORT } from "@/lib/db";
-import * as XLSX from "xlsx";
-import { Eye, EyeOff, ShieldAlert } from "lucide-react";
+import { exportSiswaToExcel } from "@/lib/exportSiswaExcel";
+import { Eye, EyeOff, ShieldAlert, Loader2, Download } from "lucide-react";
 
 const maskNisn = (nisn: string, unlocked: boolean) => {
   if (unlocked || !nisn) return nisn;
@@ -29,6 +29,7 @@ function SiswaPage() {
   const [perPage, setPerPage] = useState(25);
   const [detail, setDetail] = useState<any>(null);
   const [isAllUnlocked, setIsAllUnlocked] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const { selectedYear } = useYear();
   const { user, canUnlockPrivacy } = useAuth();
 
@@ -128,31 +129,75 @@ function SiswaPage() {
 
   const exportExcel = async () => {
     try {
-      const all = await query<any>(`
+      setIsExporting(true);
+
+      // 1. Ambil seluruh data siswa yang terfilter (termasuk join verval_lanjutan)
+      const allRows = await query<any>(`
         SELECT 
-          s.nama_siswa as 'Nama Siswa', 
-          s.nisn as 'NISN', 
-          s.satuan_pendidikan as 'Sekolah', 
-          s.kecamatan as 'Kecamatan', 
-          s.tingkat_kelas as 'Kelas', 
-          s.jenis_kelamin as 'JK',
-          h.jenis_hambatan as 'Jenis Hambatan', 
-          h.tingkat_hambatan as 'Klasifikasi Hambatan',
-          (SELECT GROUP_CONCAT(nama_alat, ', ') FROM alat_bantu WHERE jenis_hambatan = h.jenis_hambatan) as 'Tipe Alat Bantu'
-        FROM siswa s
-        LEFT JOIN hambatan_siswa h ON s.id = h.siswa_id
+          s.*,
+          vl.id AS verval_id,
+          vl.status_patju360,
+          vl.desil_nasional,
+          vl.kategori_desil,
+          vl.sumber_instansi,
+          vl.beasiswa_bskm,
+          vl.pbi_jk,
+          vl.puskesmas_terdekat,
+          vl.jarak_km
+        FROM siswa s 
+        LEFT JOIN verval_lanjutan vl ON vl.nisn = s.nisn
         ${filterSql.w}
         ORDER BY s.nama_siswa
       `, filterSql.args);
 
-      const worksheet = XLSX.utils.json_to_sheet(all);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Siswa PBS");
-      
-      XLSX.writeFile(workbook, `data-siswa-pbs-lombok-barat.xlsx`);
-    } catch (error) {
+      if (!allRows || allRows.length === 0) {
+        alert("Tidak ada data siswa yang sesuai dengan filter untuk diekspor.");
+        return;
+      }
+
+      // 2. Ambil seluruh rincian hambatan untuk siswa yang terfilter
+      const ids = allRows.map((r: any) => r.id);
+      const hambMap = new Map<number, any[]>();
+      if (ids.length) {
+        const chunkSize = 500;
+        for (let i = 0; i < ids.length; i += chunkSize) {
+          const chunk = ids.slice(i, i + chunkSize);
+          const placeholders = chunk.map(() => "?").join(",");
+          const hamb = await query<any>(`
+            SELECT siswa_id, jenis_hambatan, tingkat_hambatan 
+            FROM hambatan_siswa 
+            WHERE siswa_id IN (${placeholders})
+          `, chunk);
+          hamb.forEach((h: any) => {
+            if (!hambMap.has(h.siswa_id)) hambMap.set(h.siswa_id, []);
+            hambMap.get(h.siswa_id)!.push(h);
+          });
+        }
+      }
+
+      // 3. Ambil peta alat bantu
+      const abRows = await query<any>(`
+        SELECT jenis_hambatan, GROUP_CONCAT(nama_alat, ', ') as alat 
+        FROM alat_bantu 
+        GROUP BY jenis_hambatan
+      `);
+      const alatMap = new Map<string, string>();
+      abRows.forEach((ab: any) => {
+        alatMap.set(ab.jenis_hambatan, ab.alat);
+      });
+
+      // 4. Generate file Excel berstandar OPD Bapperida
+      await exportSiswaToExcel(
+        { q, kec, jenjang, kelamin, tingkat, filterVerval, selectedYear },
+        allRows,
+        hambMap,
+        alatMap
+      );
+    } catch (error: any) {
       console.error("Gagal export excel:", error);
-      alert("Terjadi kesalahan saat mengekspor data.");
+      alert("Terjadi kesalahan saat mengekspor data: " + (error?.message || ""));
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -195,8 +240,22 @@ function SiswaPage() {
           <p className="text-sm text-muted-foreground mt-1">{data ? `${fmt(data.total)} siswa` : "Memuat…"}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={exportExcel} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2">
-            📊 Export Excel
+          <button 
+            disabled={isExporting}
+            onClick={exportExcel} 
+            className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Mengekspor...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                <span>Export Excel</span>
+              </>
+            )}
           </button>
           <button onClick={exportCsv} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">⬇ Export CSV</button>
         </div>
