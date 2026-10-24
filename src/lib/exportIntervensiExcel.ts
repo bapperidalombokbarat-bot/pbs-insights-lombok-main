@@ -25,7 +25,7 @@ export async function exportIntervensiToExcel(
   wb.modified = new Date();
 
   const ws = wb.addWorksheet("Data Intervensi Prioritas", {
-    views: [{ showGridLines: true }],
+    views: [{ showGridLines: true, zoomScale: 85 }],
     pageSetup: {
       orientation: "landscape",
       fitToPage: true,
@@ -35,7 +35,7 @@ export async function exportIntervensiToExcel(
     },
   });
 
-  // 1. EMBED LOGO LOMBOK BARAT DI KOP KIRI
+  // 1. EMBED LOGO LOMBOK BARAT DI KOP (DIDEKATKAN DENGAN NAMA OPD)
   try {
     const res = await fetch(logoLobarBlue);
     const arrayBuffer = await res.arrayBuffer();
@@ -44,35 +44,36 @@ export async function exportIntervensiToExcel(
       extension: "png",
     });
 
+    // Posisikan logo di Kolom N (tepat di sisi kiri teks OPD Bapperida)
     ws.addImage(imgId, {
-      tl: { col: 0.3, row: 0.2 },
-      ext: { width: 75, height: 75 },
+      tl: { col: 13.0, row: 0.2 },
+      ext: { width: 72, height: 72 },
     });
   } catch (err) {
     console.warn("Logo tidak dapat dimuat:", err);
   }
 
   // 2. KOP SURAT RESMI PEMKAB & BAPPERIDA (BARIS 1 - 5)
-  ws.mergeCells("C1:AC1");
-  const c1 = ws.getCell("C1");
+  ws.mergeCells("A1:AC1");
+  const c1 = ws.getCell("A1");
   c1.value = "PEMERINTAH KABUPATEN LOMBOK BARAT";
   c1.font = { name: "Arial", size: 12, bold: true, color: { argb: "FF0F172A" } };
   c1.alignment = { vertical: "middle", horizontal: "center" };
 
-  ws.mergeCells("C2:AC2");
-  const c2 = ws.getCell("C2");
+  ws.mergeCells("A2:AC2");
+  const c2 = ws.getCell("A2");
   c2.value = "BADAN PERENCANAAN PEMBANGUNAN DAERAH (BAPPERIDA)";
   c2.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF1E3A8A" } };
   c2.alignment = { vertical: "middle", horizontal: "center" };
 
-  ws.mergeCells("C3:AC3");
-  const c3 = ws.getCell("C3");
+  ws.mergeCells("A3:AC3");
+  const c3 = ws.getCell("A3");
   c3.value = "Bidang Pemerintahan dan Pembangunan Manusia (P2M)";
   c3.font = { name: "Arial", size: 10, bold: true, color: { argb: "FF334155" } };
   c3.alignment = { vertical: "middle", horizontal: "center" };
 
-  ws.mergeCells("C4:AC4");
-  const c4 = ws.getCell("C4");
+  ws.mergeCells("A4:AC4");
+  const c4 = ws.getCell("A4");
   c4.value = "Jl. Soekarno - Hatta No. 1, Giri Menang, Gerung, Kabupaten Lombok Barat, NTB · Kode Pos: 83363";
   c4.font = { name: "Arial", size: 8.5, italic: true, color: { argb: "FF64748B" } };
   c4.alignment = { vertical: "middle", horizontal: "center" };
