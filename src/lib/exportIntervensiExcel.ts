@@ -19,7 +19,7 @@ export async function exportIntervensiToExcel(
   hambatanMap: Map<string, any[]>
 ) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Bapperida Lombok Barat";
+  wb.creator = "Badan Perencanaan Pembangunan, Riset dan Inovasi Daerah (Bapperida) Lombok Barat";
   wb.lastModifiedBy = "Sistem PEDULI PATJU 360";
   wb.created = new Date();
   wb.modified = new Date();
@@ -44,7 +44,7 @@ export async function exportIntervensiToExcel(
       extension: "png",
     });
 
-    // Posisikan logo di Kolom N (tepat di sisi kiri teks OPD Bapperida)
+    // Posisikan logo di Kolom N (tepat di sisi kiri nama OPD Bapperida)
     ws.addImage(imgId, {
       tl: { col: 13.0, row: 0.2 },
       ext: { width: 72, height: 72 },
@@ -57,25 +57,25 @@ export async function exportIntervensiToExcel(
   ws.mergeCells("A1:AC1");
   const c1 = ws.getCell("A1");
   c1.value = "PEMERINTAH KABUPATEN LOMBOK BARAT";
-  c1.font = { name: "Arial", size: 12, bold: true, color: { argb: "FF0F172A" } };
+  c1.font = { name: "Book Antiqua", size: 12, bold: true, color: { argb: "FF0F172A" } };
   c1.alignment = { vertical: "middle", horizontal: "center" };
 
   ws.mergeCells("A2:AC2");
   const c2 = ws.getCell("A2");
-  c2.value = "BADAN PERENCANAAN PEMBANGUNAN DAERAH (BAPPERIDA)";
-  c2.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF1E3A8A" } };
+  c2.value = "BADAN PERENCANAAN PEMBANGUNAN, RISET DAN INOVASI DAERAH (BAPPERIDA)";
+  c2.font = { name: "Book Antiqua", size: 13, bold: true, color: { argb: "FF1E3A8A" } };
   c2.alignment = { vertical: "middle", horizontal: "center" };
 
   ws.mergeCells("A3:AC3");
   const c3 = ws.getCell("A3");
   c3.value = "Bidang Pemerintahan dan Pembangunan Manusia (P2M)";
-  c3.font = { name: "Arial", size: 10, bold: true, color: { argb: "FF334155" } };
+  c3.font = { name: "Book Antiqua", size: 11, bold: true, color: { argb: "FF334155" } };
   c3.alignment = { vertical: "middle", horizontal: "center" };
 
   ws.mergeCells("A4:AC4");
   const c4 = ws.getCell("A4");
   c4.value = "Jl. Soekarno - Hatta No. 1, Giri Menang, Gerung, Kabupaten Lombok Barat, NTB · Kode Pos: 83363";
-  c4.font = { name: "Arial", size: 8.5, italic: true, color: { argb: "FF64748B" } };
+  c4.font = { name: "Book Antiqua", size: 9.5, italic: true, color: { argb: "FF64748B" } };
   c4.alignment = { vertical: "middle", horizontal: "center" };
 
   // Garis Pembatas Kop Surat
@@ -85,10 +85,10 @@ export async function exportIntervensiToExcel(
     bottom: { style: "double", color: { argb: "FF1E293B" } },
   };
 
-  ws.getRow(1).height = 19;
-  ws.getRow(2).height = 22;
-  ws.getRow(3).height = 16;
-  ws.getRow(4).height = 15;
+  ws.getRow(1).height = 20;
+  ws.getRow(2).height = 24;
+  ws.getRow(3).height = 18;
+  ws.getRow(4).height = 17;
   ws.getRow(5).height = 6;
   ws.getRow(6).height = 8; // Spasi kosong
 
@@ -107,65 +107,65 @@ export async function exportIntervensiToExcel(
   ws.mergeCells("A7:AC7");
   const c7 = ws.getCell("A7");
   c7.value = `LAPORAN DATA INTERVENSI PRIORITAS (PATJU 360)${titleFilterDeskripsi ? " · " + titleFilterDeskripsi : ""}`;
-  c7.font = { name: "Arial", size: 13, bold: true, color: { argb: "FF1E3A8A" } };
+  c7.font = { name: "Book Antiqua", size: 13, bold: true, color: { argb: "FF1E3A8A" } };
   c7.alignment = { vertical: "middle", horizontal: "center" };
   c7.fill = {
     type: "pattern",
     pattern: "solid",
     fgColor: { argb: "FFF0F7FF" },
   };
-  ws.getRow(7).height = 25;
+  ws.getRow(7).height = 26;
 
   ws.mergeCells("A8:AC8");
   const c8 = ws.getCell("A8");
   c8.value = `Sistem Data Terpadu Peserta Didik Inklusi (PEDULI) Kabupaten Lombok Barat · Tahun Anggaran ${filters.selectedYear}`;
-  c8.font = { name: "Arial", size: 9.5, italic: true, color: { argb: "FF475569" } };
+  c8.font = { name: "Book Antiqua", size: 11, italic: true, color: { argb: "FF475569" } };
   c8.alignment = { vertical: "middle", horizontal: "center" };
-  ws.getRow(8).height = 18;
+  ws.getRow(8).height = 20;
 
   // 4. KOTAK INFORMASI FILTER YANG DITERAPKAN (METADATA TARIKAN DATA)
   ws.mergeCells("A10:E10");
   ws.getCell("A10").value = `Instansi Pembina : ${filters.instansi === "Semua" ? "Semua (Dikbud & Kemenag)" : filters.instansi}`;
-  ws.getCell("A10").font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FF1E293B" } };
+  ws.getCell("A10").font = { name: "Book Antiqua", size: 10.5, bold: true, color: { argb: "FF1E293B" } };
 
   ws.mergeCells("F10:J10");
   ws.getCell("F10").value = `Jenjang Pendidikan : ${filters.jenjang === "Semua" ? "Semua Jenjang" : filters.jenjang}`;
-  ws.getCell("F10").font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FF1E293B" } };
+  ws.getCell("F10").font = { name: "Book Antiqua", size: 10.5, bold: true, color: { argb: "FF1E293B" } };
 
   ws.mergeCells("K10:O10");
   ws.getCell("K10").value = `Wilayah Kecamatan : ${filters.kec === "Semua" ? "Semua Kecamatan" : filters.kec}`;
-  ws.getCell("K10").font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FF1E293B" } };
+  ws.getCell("K10").font = { name: "Book Antiqua", size: 10.5, bold: true, color: { argb: "FF1E293B" } };
 
   ws.mergeCells("P10:T10");
   ws.getCell("P10").value = `Status Desil DTSEN : ${filters.desil === "Semua" ? "Semua Desil" : filters.desil === "1" ? "Desil 1 (Ekstrem)" : filters.desil === "2" ? "Desil 2 (Sangat Miskin)" : filters.desil}`;
-  ws.getCell("P10").font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FF1E293B" } };
+  ws.getCell("P10").font = { name: "Book Antiqua", size: 10.5, bold: true, color: { argb: "FF1E293B" } };
 
   ws.mergeCells("U10:AC10");
   ws.getCell("U10").value = `Waktu Ekspor : ${new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} Pukul ${new Date().toLocaleTimeString("id-ID")}`;
-  ws.getCell("U10").font = { name: "Arial", size: 8.5, italic: true, color: { argb: "FF475569" } };
+  ws.getCell("U10").font = { name: "Book Antiqua", size: 10, italic: true, color: { argb: "FF475569" } };
 
   ws.mergeCells("A11:E11");
   ws.getCell("A11").value = `Beasiswa BSKM : ${filters.bskm === "Semua" ? "Semua Status" : filters.bskm === "Belum" ? "Belum Menerima (Prioritas)" : "Sudah Menerima"}`;
-  ws.getCell("A11").font = { name: "Arial", size: 8.5, color: { argb: "FF475569" } };
+  ws.getCell("A11").font = { name: "Book Antiqua", size: 10, color: { argb: "FF475569" } };
 
   ws.mergeCells("F11:J11");
   ws.getCell("F11").value = `BPJS PBI-JK : ${filters.pbiJk === "Semua" ? "Semua Status" : filters.pbiJk === "Belum" ? "Belum Tercover (Prioritas)" : "Sudah Tercover"}`;
-  ws.getCell("F11").font = { name: "Arial", size: 8.5, color: { argb: "FF475569" } };
+  ws.getCell("F11").font = { name: "Book Antiqua", size: 10, color: { argb: "FF475569" } };
 
   ws.mergeCells("K11:O11");
   ws.getCell("K11").value = `Jarak ke FKTP : ${filters.jarakKat === "Semua" ? "Semua Jarak" : filters.jarakKat}`;
-  ws.getCell("K11").font = { name: "Arial", size: 8.5, color: { argb: "FF475569" } };
+  ws.getCell("K11").font = { name: "Book Antiqua", size: 10, color: { argb: "FF475569" } };
 
   ws.mergeCells("P11:T11");
   ws.getCell("P11").value = `Kata Kunci Pencarian : ${filters.q ? `"${filters.q}"` : "Tidak Ada"}`;
-  ws.getCell("P11").font = { name: "Arial", size: 8.5, color: { argb: "FF475569" } };
+  ws.getCell("P11").font = { name: "Book Antiqua", size: 10, color: { argb: "FF475569" } };
 
   ws.mergeCells("U11:AC11");
   ws.getCell("U11").value = `Jumlah Data Terfilter : ${rows.length} Siswa Terdaftar`;
-  ws.getCell("U11").font = { name: "Arial", size: 9, bold: true, color: { argb: "FF047857" } };
+  ws.getCell("U11").font = { name: "Book Antiqua", size: 11, bold: true, color: { argb: "FF047857" } };
 
-  ws.getRow(10).height = 16;
-  ws.getRow(11).height = 16;
+  ws.getRow(10).height = 19;
+  ws.getRow(11).height = 19;
   ws.getRow(12).height = 8; // Spasi kosong
 
   // 5. STRUKTUR NESTED TABLE HEADER (BARIS 13 & 14)
@@ -228,7 +228,7 @@ export async function exportIntervensiToExcel(
   });
 
   // STYLING ROW 13 (GROUP HEADERS)
-  ws.getRow(13).height = 28;
+  ws.getRow(13).height = 30;
   const colLetters = [
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", 
     "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", 
@@ -237,7 +237,7 @@ export async function exportIntervensiToExcel(
 
   colLetters.forEach((col) => {
     const cell = ws.getCell(`${col}13`);
-    cell.font = { name: "Arial", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
+    cell.font = { name: "Book Antiqua", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
     cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
     cell.fill = {
       type: "pattern",
@@ -253,10 +253,10 @@ export async function exportIntervensiToExcel(
   });
 
   // STYLING ROW 14 (SUB HEADERS)
-  ws.getRow(14).height = 26;
+  ws.getRow(14).height = 28;
   colLetters.forEach((col) => {
     const cell = ws.getCell(`${col}14`);
-    cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFFFFFFF" } };
+    cell.font = { name: "Book Antiqua", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
     cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
     cell.fill = {
       type: "pattern",
@@ -271,37 +271,37 @@ export async function exportIntervensiToExcel(
     };
   });
 
-  // ATUR LEBAR KOLOM (AUTO-WIDTH ESTIMATION)
+  // ATUR LEBAR KOLOM (DISESUAIKAN DENGAN BOOK ANTIQUA 11 PT)
   const colWidths: Record<string, number> = {
-    A: 6,   // No
-    B: 28,  // Nama
-    C: 15,  // NISN
-    D: 18,  // NIK
-    E: 14,  // JK
-    F: 28,  // Alamat Siswa
-    G: 12,  // Instansi
-    H: 30,  // Sekolah
-    I: 11,  // Jenjang
-    J: 10,  // Kelas
-    K: 16,  // Kecamatan
-    L: 26,  // Alamat Sekolah
-    M: 16,  // Desil Nasional
-    N: 20,  // Kategori Desil
-    O: 14,  // Desil Awal
-    P: 16,  // BSKM
-    Q: 16,  // PBI-JK
-    R: 20,  // PKH/BPNT
-    S: 24,  // Penyakit Kronis
-    T: 24,  // Disabilitas DTSEN
-    U: 32,  // Hambatan
-    V: 28,  // Rekomendasi Alat
-    W: 28,  // Puskesmas
-    X: 13,  // Jarak
-    Y: 24,  // Dokter
-    Z: 28,  // Diagnosa
-    AA: 30, // Tindakan
-    AB: 24, // Status Rujukan
-    AC: 28, // Keterangan
+    A: 7,   // No
+    B: 32,  // Nama Siswa
+    C: 18,  // NISN
+    D: 22,  // NIK Siswa
+    E: 16,  // Jenis Kelamin
+    F: 32,  // Alamat Domisili Siswa
+    G: 14,  // Instansi
+    H: 34,  // Satuan Pendidikan (Sekolah)
+    I: 13,  // Jenjang
+    J: 12,  // Kelas
+    K: 18,  // Kecamatan
+    L: 30,  // Alamat Sekolah
+    M: 20,  // Desil Nasional
+    N: 22,  // Kategori Desil
+    O: 16,  // Desil Awal
+    P: 18,  // Beasiswa BSKM
+    Q: 20,  // BPJS PBI-JK
+    R: 22,  // Bansos PKH/BPNT
+    S: 26,  // Penyakit Kronis
+    T: 26,  // Disabilitas DTSEN
+    U: 36,  // Hambatan Berat PBS
+    V: 32,  // Rekomendasi Alat Bantu
+    W: 30,  // Puskesmas Rujukan (FKTP)
+    X: 15,  // Jarak (KM)
+    Y: 26,  // Dokter Pemeriksa
+    Z: 32,  // Diagnosa Medis
+    AA: 34, // Tindakan Medis / Terapi
+    AB: 26, // Status Rujukan
+    AC: 32, // Keterangan Intervensi
   };
 
   Object.entries(colWidths).forEach(([col, width]) => {
@@ -369,15 +369,15 @@ export async function exportIntervensiToExcel(
     ];
 
     const row = ws.addRow(rowValues);
-    row.height = 22;
+    row.height = 25;
 
     const isEven = idx % 2 === 1;
     const bgArgb = isEven ? "FFF8FAFC" : "FFFFFFFF";
 
-    // Styling sel data
+    // Styling sel data (Book Antiqua 11 pt)
     colLetters.forEach((col, cIdx) => {
       const cell = row.getCell(cIdx + 1);
-      cell.font = { name: "Arial", size: 8.5, color: { argb: "FF0F172A" } };
+      cell.font = { name: "Book Antiqua", size: 11, color: { argb: "FF0F172A" } };
       cell.fill = {
         type: "pattern",
         pattern: "solid",
@@ -400,17 +400,17 @@ export async function exportIntervensiToExcel(
       // Khusus Desil 1 & 2 diberi highlight lembut
       if (col === "M") {
         if (r.desil_nasional === "1") {
-          cell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FFB91C1C" } };
+          cell.font = { name: "Book Antiqua", size: 11, bold: true, color: { argb: "FFB91C1C" } };
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
         } else if (r.desil_nasional === "2") {
-          cell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FFB45309" } };
+          cell.font = { name: "Book Antiqua", size: 11, bold: true, color: { argb: "FFB45309" } };
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
         }
       }
 
       // Khusus BSKM Belum Menerima diberi highlight oranye
       if (col === "P" && (!r.beasiswa_bskm || r.beasiswa_bskm === "TIDAK")) {
-        cell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FFC2410C" } };
+        cell.font = { name: "Book Antiqua", size: 11, bold: true, color: { argb: "FFC2410C" } };
       }
     });
 
@@ -423,12 +423,12 @@ export async function exportIntervensiToExcel(
   // Catatan Kiri
   ws.mergeCells(`B${signRowStart}:F${signRowStart}`);
   ws.getCell(`B${signRowStart}`).value = "Catatan Sistem:";
-  ws.getCell(`B${signRowStart}`).font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FF334155" } };
+  ws.getCell(`B${signRowStart}`).font = { name: "Book Antiqua", size: 10.5, bold: true, color: { argb: "FF334155" } };
 
   ws.mergeCells(`B${signRowStart + 1}:F${signRowStart + 2}`);
   ws.getCell(`B${signRowStart + 1}`).value = 
     "Data ini merupakan hasil sinkronisasi verifikasi validasi terpadu Program PATJU 360 kolaborasi Bapperida, DikesPPKB, Dikbud, Kemenag, dan Dinsos Kab. Lombok Barat.";
-  ws.getCell(`B${signRowStart + 1}`).font = { name: "Arial", size: 8, italic: true, color: { argb: "FF64748B" } };
+  ws.getCell(`B${signRowStart + 1}`).font = { name: "Book Antiqua", size: 10, italic: true, color: { argb: "FF64748B" } };
   ws.getCell(`B${signRowStart + 1}`).alignment = { vertical: "top", horizontal: "left", wrapText: true };
 
   // Tanda Tangan Kanan (Bapperida Lombok Barat)
@@ -437,31 +437,31 @@ export async function exportIntervensiToExcel(
   ws.mergeCells(`W${signRowStart}:AC${signRowStart}`);
   const s1 = ws.getCell(`W${signRowStart}`);
   s1.value = `Gerung, ${todayStr}`;
-  s1.font = { name: "Arial", size: 9, bold: true };
+  s1.font = { name: "Book Antiqua", size: 11, bold: true };
   s1.alignment = { horizontal: "center", vertical: "middle" };
 
   ws.mergeCells(`W${signRowStart + 1}:AC${signRowStart + 1}`);
   const s2 = ws.getCell(`W${signRowStart + 1}`);
-  s2.value = "KEPALA BADAN PERENCANAAN PEMBANGUNAN DAERAH";
-  s2.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF1E3A8A" } };
+  s2.value = "KEPALA BADAN PERENCANAAN PEMBANGUNAN, RISET DAN INOVASI DAERAH";
+  s2.font = { name: "Book Antiqua", size: 11, bold: true, color: { argb: "FF1E3A8A" } };
   s2.alignment = { horizontal: "center", vertical: "middle" };
 
   ws.mergeCells(`W${signRowStart + 2}:AC${signRowStart + 2}`);
   const s3 = ws.getCell(`W${signRowStart + 2}`);
   s3.value = "KABUPATEN LOMBOK BARAT";
-  s3.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF1E3A8A" } };
+  s3.font = { name: "Book Antiqua", size: 11, bold: true, color: { argb: "FF1E3A8A" } };
   s3.alignment = { horizontal: "center", vertical: "middle" };
 
   ws.mergeCells(`W${signRowStart + 6}:AC${signRowStart + 6}`);
   const s4 = ws.getCell(`W${signRowStart + 6}`);
   s4.value = "( ............................................................................ )";
-  s4.font = { name: "Arial", size: 9.5, bold: true };
+  s4.font = { name: "Book Antiqua", size: 11, bold: true };
   s4.alignment = { horizontal: "center", vertical: "middle" };
 
   ws.mergeCells(`W${signRowStart + 7}:AC${signRowStart + 7}`);
   const s5 = ws.getCell(`W${signRowStart + 7}`);
   s5.value = "NIP. ..............................................................";
-  s5.font = { name: "Arial", size: 8.5 };
+  s5.font = { name: "Book Antiqua", size: 10.5 };
   s5.alignment = { horizontal: "center", vertical: "middle" };
 
   // 8. GENERATE BUFFER DAN TRIGGER DOWNLOAD DI BROWSER
