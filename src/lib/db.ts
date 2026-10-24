@@ -318,6 +318,59 @@ export async function updateVervalMedis(id: number, data: {
   ]);
 }
 
+/**
+ * Memperbarui catatan pemeriksaan medis massal (batch update) berdasarkan NISN / NIK
+ * Tetap mempertahankan data siswa yang ada dan hanya memperbarui data klinis yang diisi
+ */
+export async function batchUpdateVervalMedis(records: {
+  nisn: string;
+  dokter_pemeriksa?: string | null;
+  diagnosa?: string | null;
+  tindakan?: string | null;
+  status_rujukan?: string | null;
+  keterangan?: string | null;
+}[]): Promise<{ updatedCount: number; notFoundList: string[] }> {
+  let updatedCount = 0;
+  const notFoundList: string[] = [];
+
+  for (const r of records) {
+    if (!r.nisn) continue;
+    const cleanNisn = String(r.nisn).trim();
+
+    const dPemeriksa = r.dokter_pemeriksa ? String(r.dokter_pemeriksa).trim() : null;
+    const dDiagnosa = r.diagnosa ? String(r.diagnosa).trim() : null;
+    const dTindakan = r.tindakan ? String(r.tindakan).trim() : null;
+    const dRujukan = r.status_rujukan ? String(r.status_rujukan).trim() : null;
+    const dKeterangan = r.keterangan ? String(r.keterangan).trim() : null;
+
+    const res = await run(`
+      UPDATE verval_lanjutan 
+      SET 
+        dokter_pemeriksa = CASE WHEN ? IS NOT NULL AND ? != '' THEN ? ELSE dokter_pemeriksa END,
+        diagnosa = CASE WHEN ? IS NOT NULL AND ? != '' THEN ? ELSE diagnosa END,
+        tindakan = CASE WHEN ? IS NOT NULL AND ? != '' THEN ? ELSE tindakan END,
+        status_rujukan = CASE WHEN ? IS NOT NULL AND ? != '' THEN ? ELSE status_rujukan END,
+        keterangan = CASE WHEN ? IS NOT NULL AND ? != '' THEN ? ELSE keterangan END
+      WHERE nisn = ? OR nik_siswa = ?
+    `, [
+      dPemeriksa, dPemeriksa, dPemeriksa,
+      dDiagnosa, dDiagnosa, dDiagnosa,
+      dTindakan, dTindakan, dTindakan,
+      dRujukan, dRujukan, dRujukan,
+      dKeterangan, dKeterangan, dKeterangan,
+      cleanNisn, cleanNisn
+    ]);
+
+    if (res.rowsAffected && res.rowsAffected > 0) {
+      updatedCount += res.rowsAffected;
+    } else {
+      notFoundList.push(cleanNisn);
+    }
+  }
+
+  return { updatedCount, notFoundList };
+}
+
 export type UserRole = "BAPPERIDA" | "DIKES" | "DIKBUD" | "DINSOS" | "INOVASI" | "GUEST";
 
 export interface UserSession {

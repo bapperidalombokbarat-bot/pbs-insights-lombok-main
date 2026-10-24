@@ -3,13 +3,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useYear } from "@/lib/YearContext";
 import { useAuth } from "@/lib/AuthContext";
-import { query, fmt, updateVervalMedis } from "@/lib/db";
+import { query, fmt, updateVervalMedis, batchUpdateVervalMedis } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
 import { exportIntervensiToExcel } from "@/lib/exportIntervensiExcel";
+import { downloadTemplateImportExcel, parseIntervensiExcel, ParsedMedisItem } from "@/lib/importIntervensiExcel";
 import { 
   ShieldAlert, Download, Eye, EyeOff, Search, RotateCcw, 
   MapPin, HeartPulse, GraduationCap, CheckCircle2, XCircle, 
-  User, School, Users, Activity, FileSpreadsheet, Stethoscope, Save, Check, Lock, Loader2
+  User, School, Users, Activity, FileSpreadsheet, Stethoscope, Save, Check, Lock, Loader2,
+  Upload, FileUp, AlertCircle, CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,6 +82,15 @@ function IntervensiPage() {
   const [detailSiswa, setDetailSiswa] = useState<any>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  // State untuk Import Rekam Medis
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
+  const [isParsingFile, setIsParsingFile] = useState(false);
+  const [isSavingImport, setIsSavingImport] = useState(false);
+  const [importedItems, setImportedItems] = useState<ParsedMedisItem[]>([]);
+  const [importStats, setImportStats] = useState<{ total: number; valid: number; withData: number } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Form Rekam Medis & Intervensi Klinis
   const [medForm, setMedForm] = useState({
@@ -439,6 +450,125 @@ function IntervensiPage() {
     }
   };
 
+  // 4. HANDLERS IMPORT REKAM MEDIS
+  const handleOpenImportDialog = () => {
+    if (!canEditMedis) {
+      if (!user) {
+        const pwd = prompt("Fitur sinkronisasi import rekam medis memerlukan akses resmi Bapperida / DikesPPKB. Masukkan PIN otoritas atau masuk dengan akun OPD:");
+        if (pwd === "17041958") {
+          setIsImportOpen(true);
+        } else if (pwd !== null) {
+          alert("PIN tidak valid! Silakan gunakan tombol 'Masuk OPD' di bagian atas layar.");
+        }
+      } else {
+        alert("Akses dibatasi. Hanya akun BAPPERIDA dan DikesPPKB yang memiliki kewenangan memperbarui data hasil pemeriksaan medis.");
+      }
+      return;
+    }
+    setIsImportOpen(true);
+    setImportedItems([]);
+    setImportStats(null);
+    setImportError(null);
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      setIsDownloadingTemplate(true);
+      const { whereClause, args } = filterParams;
+      const allRows = await query<any>(`
+        SELECT 
+          vl.id,
+          vl.nisn,
+          vl.nama_siswa,
+          s.satuan_pendidikan,
+          s.kecamatan,
+          vl.dokter_pemeriksa,
+          vl.diagnosa,
+          vl.tindakan,
+          vl.status_rujukan,
+          vl.keterangan
+        FROM verval_lanjutan vl
+        JOIN siswa s ON s.id = vl.siswa_id
+        ${whereClause}
+        ORDER BY vl.nama_siswa ASC
+      `, args);
+
+      await downloadTemplateImportExcel(allRows);
+    } catch (err: any) {
+      console.error("Gagal unduh template:", err);
+      alert("Gagal mengunduh template: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setIsDownloadingTemplate(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsParsingFile(true);
+      setImportError(null);
+      const result = await parseIntervensiExcel(file);
+
+      if (!result.success) {
+        setImportError(result.message || "Gagal membaca berkas Excel.");
+        setImportedItems([]);
+        setImportStats(null);
+        return;
+      }
+
+      const validItems = result.items;
+      const withDataCount = validItems.filter((i) => i.hasDataToUpdate).length;
+
+      setImportedItems(validItems);
+      setImportStats({
+        total: result.totalRowsRead,
+        valid: validItems.length,
+        withData: withDataCount,
+      });
+    } catch (err: any) {
+      console.error("Gagal parse file:", err);
+      setImportError("Gagal membaca berkas Excel: " + (err?.message || "Format tidak didukung"));
+    } finally {
+      setIsParsingFile(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleExecuteImport = async () => {
+    if (!importedItems || importedItems.length === 0) return;
+
+    const dataToUpdate = importedItems.filter((i) => i.hasDataToUpdate);
+    if (dataToUpdate.length === 0) {
+      alert("Tidak ada baris yang memiliki data rekam medis untuk diperbarui. Pastikan telah mengisi kolom Dokter, Diagnosa, Tindakan, Rujukan, atau Keterangan.");
+      return;
+    }
+
+    try {
+      setIsSavingImport(true);
+      const { updatedCount, notFoundList } = await batchUpdateVervalMedis(dataToUpdate);
+
+      await queryClient.invalidateQueries({ queryKey: ["verval-list"] });
+      await queryClient.invalidateQueries({ queryKey: ["verval-analytics"] });
+
+      let msg = `Berhasil menyinkronkan hasil pemeriksaan medis untuk ${updatedCount} siswa!\n\nSeluruh data profil, sekolah, dan DTSEN sebelumnya tetap terjaga utuh.`;
+      if (notFoundList.length > 0) {
+        msg += `\n\nCatatan: ${notFoundList.length} baris NISN tidak ditemukan di database: ${notFoundList.slice(0, 5).join(", ")}${notFoundList.length > 5 ? "..." : ""}`;
+      }
+      alert(msg);
+
+      setIsImportOpen(false);
+      setImportedItems([]);
+      setImportStats(null);
+    } catch (err: any) {
+      console.error("Gagal import data:", err);
+      alert("Gagal melakukan import data: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setIsSavingImport(false);
+    }
+  };
+
   const totalRows = vervalData?.summary?.total_siswa || 0;
   const totalPages = Math.max(1, Math.ceil(totalRows / perPage));
 
@@ -543,6 +673,16 @@ function IntervensiPage() {
                   Export Excel
                 </>
               )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenImportDialog}
+              className="rounded-xl flex items-center gap-1.5 text-xs font-bold border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+              title="Import hasil pemeriksaan medis dan rujukan dokter dari berkas Excel"
+            >
+              <Upload className="w-4 h-4" />
+              Import Rekam Medis
             </Button>
             <Button
               variant="ghost"
@@ -1457,6 +1597,180 @@ function IntervensiPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Dialog Import Rekam Medis */}
+      <Dialog open={isImportOpen} onOpenChange={(open) => !open && setIsImportOpen(false)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-500/15 text-blue-600 border border-blue-500/30">
+                Pemeriksaan Medis &amp; Rujukan
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 border border-emerald-500/30">
+                Data Siswa Terproteksi
+              </span>
+            </div>
+            <DialogTitle className="text-xl font-black flex items-center gap-2">
+              <Upload className="w-5 h-5 text-blue-600" />
+              Import Hasil Pemeriksaan Medis (PATJU 360)
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Perbarui 5 kolom intervensi klinis (Dokter Pemeriksa, Diagnosa, Tindakan, Status Rujukan, Keterangan) secara massal dari Excel. Sistem mencocokkan data berdasarkan NISN dan mempertahankan seluruh data profil serta DTSEN siswa yang ada.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Step 1: Unduh Format Template */}
+            <div className="p-3.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <span className="text-xs font-bold block text-foreground">1. Unduh Format Template Excel</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Format resmi dengan kolom identitas yang sudah terisi otomatis sesuai filter aktif untuk memudahkan input dokter/puskesmas.
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isDownloadingTemplate}
+                onClick={handleDownloadTemplate}
+                className="rounded-xl flex items-center gap-1.5 text-xs font-bold border-blue-500/30 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+              >
+                {isDownloadingTemplate ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Menyiapkan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Unduh Template (.xlsx)</span>
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Step 2: Unggah File Excel */}
+            <div className="p-4 rounded-xl border-2 border-dashed border-border hover:border-blue-500/50 transition-colors bg-muted/10 text-center space-y-2">
+              <div className="mx-auto w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600">
+                <FileUp className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs font-bold block text-foreground">2. Unggah Berkas Excel yang Sudah Diisi</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Mendukung berkas Template Resmi maupun Berkas Ekspor Intervensi (.xlsx, .xls, .csv)
+                </span>
+              </div>
+              <div className="pt-2">
+                <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer shadow-sm">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{isParsingFile ? "Membaca Berkas..." : "Pilih Berkas Excel"}</span>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    className="hidden"
+                    disabled={isParsingFile}
+                    onChange={handleFileChange}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Pesan Kesalahan jika ada */}
+            {importError && (
+              <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{importError}</span>
+              </div>
+            )}
+
+            {/* Step 3: Pratinjau & Ringkasan Validasi */}
+            {importStats && (
+              <div className="space-y-3 p-3.5 rounded-xl bg-card border border-border">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    Ringkasan Berkas Terdeteksi:
+                  </span>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-700 font-mono text-[11px]">
+                      {importStats.total} Baris Terbaca
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 font-mono text-[11px] font-bold">
+                      {importStats.withData} Baris Ada Data Medis
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tabel Preview */}
+                <div className="max-h-56 overflow-y-auto border border-border rounded-lg text-xs">
+                  <table className="w-full text-[11px]">
+                    <thead className="bg-muted text-muted-foreground sticky top-0">
+                      <tr>
+                        <th className="px-2.5 py-1.5 text-left font-bold">NISN</th>
+                        <th className="px-2.5 py-1.5 text-left font-bold">Nama Siswa</th>
+                        <th className="px-2.5 py-1.5 text-left font-bold">Dokter</th>
+                        <th className="px-2.5 py-1.5 text-left font-bold">Diagnosa Medis</th>
+                        <th className="px-2.5 py-1.5 text-left font-bold">Status Rujukan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {importedItems.slice(0, 10).map((it, idx) => (
+                        <tr key={idx} className={it.hasDataToUpdate ? "bg-emerald-50/40 dark:bg-emerald-950/10" : ""}>
+                          <td className="px-2.5 py-1.5 font-mono text-muted-foreground">{it.nisn}</td>
+                          <td className="px-2.5 py-1.5 font-medium">{it.nama_siswa || "—"}</td>
+                          <td className="px-2.5 py-1.5 text-blue-600 font-medium">{it.dokter_pemeriksa || "—"}</td>
+                          <td className="px-2.5 py-1.5 text-foreground">{it.diagnosa || "—"}</td>
+                          <td className="px-2.5 py-1.5">
+                            <span className="px-1.5 py-0.5 rounded bg-muted text-[10px]">
+                              {it.status_rujukan || "Belum Ada Rujukan"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {importedItems.length > 10 && (
+                    <div className="p-2 text-center text-[10px] text-muted-foreground bg-muted/20 border-t border-border">
+                      Menampilkan 10 dari {importedItems.length} baris data...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex items-center justify-between pt-3 border-t border-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsImportOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Batal
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={isSavingImport || !importedItems.length || !importStats?.withData}
+              onClick={handleExecuteImport}
+              className="rounded-xl flex items-center gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+            >
+              {isSavingImport ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Menyimpan Perubahan...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Simpan &amp; Terapkan ke Database ({importStats?.withData || 0} Siswa)</span>
+                </>
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
