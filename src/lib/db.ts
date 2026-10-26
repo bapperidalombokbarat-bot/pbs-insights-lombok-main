@@ -37,10 +37,14 @@ async function queryOneDirect<T = any>(sql: string, params: any[] = []): Promise
 async function runDirect(sql: string, params: any[] = []) {
   try {
     const client = getLibsqlClient();
-    await client.execute({
+    const result = await client.execute({
       sql,
       args: params
     });
+    return {
+      rowsAffected: result.rowsAffected,
+      lastInsertRowid: result.lastInsertRowid != null ? Number(result.lastInsertRowid) : undefined,
+    };
   } catch (error) {
     console.error("Database Run Error:", error);
     throw error;
@@ -241,7 +245,347 @@ const serverQuery = createServerFn({ method: "POST" })
 const serverRun = createServerFn({ method: "POST" })
   .inputValidator((d: { sql: string; params?: any[] }) => d)
   .handler(async ({ data }: { data: { sql: string; params?: any[] } }) => {
-    await runDirect(data.sql, data.params || []);
+    return await runDirect(data.sql, data.params || []);
+  });
+
+export interface VervalHambatanInput {
+  id?: number;
+  jenis_hambatan: string;
+  klasifikasi?: string;
+  tipe_alat_rekomendasi?: string;
+}
+
+export interface VervalItemInput {
+  id?: number;
+  siswa_id?: number | null;
+  nisn: string;
+  nik_siswa?: string | null;
+  nama_siswa: string;
+  sumber_instansi?: string | null;
+  satuan_pendidikan?: string | null;
+  kecamatan?: string | null;
+  jenjang?: string | null;
+  tingkat_kelas?: string | null;
+  jenis_kelamin?: string | null;
+  alamat_siswa?: string | null;
+  alamat_sekolah?: string | null;
+  nama_ibu?: string | null;
+  nik_ibu?: string | null;
+  nama_ayah?: string | null;
+  nik_ayah?: string | null;
+  status_patju360?: string | null;
+  metode_verval?: string | null;
+  desil_nasional?: string | null;
+  kategori_desil?: string | null;
+  desil_awal?: string | null;
+  pkh?: string | null;
+  bansos_sembako?: string | null;
+  beasiswa_bskm?: string | null;
+  pbi_jk?: string | null;
+  status_medis?: string | null;
+  disabilitas_dtsen?: string | null;
+  puskesmas_terdekat?: string | null;
+  jarak_km?: number | null;
+  dokter_pemeriksa?: string | null;
+  diagnosa?: string | null;
+  tindakan?: string | null;
+  status_rujukan?: string | null;
+  keterangan?: string | null;
+  hambatan?: VervalHambatanInput[];
+}
+
+const serverSaveVervalIntervensi = createServerFn({ method: "POST" })
+  .inputValidator((d: VervalItemInput) => d)
+  .handler(async ({ data }: { data: VervalItemInput }) => {
+    if (!data.nama_siswa || !data.nisn) {
+      throw new Error("Nama Siswa dan NISN wajib diisi.");
+    }
+
+    const cleanNisn = String(data.nisn).trim();
+    const cleanNama = String(data.nama_siswa).trim();
+    const cleanNik = data.nik_siswa ? String(data.nik_siswa).trim() : null;
+
+    let targetSiswaId = data.siswa_id || null;
+
+    // Hubungkan atau perbarui ke master tabel siswa
+    if (targetSiswaId) {
+      await runDirect(`
+        UPDATE siswa 
+        SET 
+          nama_siswa = ?, 
+          nisn = ?, 
+          satuan_pendidikan = COALESCE(?, satuan_pendidikan), 
+          kecamatan = COALESCE(?, kecamatan), 
+          jenjang = COALESCE(?, jenjang), 
+          tingkat_kelas = COALESCE(?, tingkat_kelas), 
+          jenis_kelamin = COALESCE(?, jenis_kelamin)
+        WHERE id = ?
+      `, [
+        cleanNama,
+        cleanNisn,
+        data.satuan_pendidikan || null,
+        data.kecamatan || null,
+        data.jenjang || null,
+        data.tingkat_kelas || null,
+        data.jenis_kelamin || null,
+        targetSiswaId
+      ]);
+    } else {
+      const existingSiswa = await queryOneDirect<any>("SELECT id FROM siswa WHERE nisn = ? LIMIT 1", [cleanNisn]);
+      if (existingSiswa) {
+        targetSiswaId = existingSiswa.id;
+        await runDirect(`
+          UPDATE siswa 
+          SET 
+            nama_siswa = ?, 
+            satuan_pendidikan = COALESCE(?, satuan_pendidikan), 
+            kecamatan = COALESCE(?, kecamatan), 
+            jenjang = COALESCE(?, jenjang), 
+            tingkat_kelas = COALESCE(?, tingkat_kelas), 
+            jenis_kelamin = COALESCE(?, jenis_kelamin)
+          WHERE id = ?
+        `, [
+          cleanNama,
+          data.satuan_pendidikan || null,
+          data.kecamatan || null,
+          data.jenjang || null,
+          data.tingkat_kelas || null,
+          data.jenis_kelamin || null,
+          targetSiswaId
+        ]);
+      } else {
+        const maxRow = await queryOneDirect<{ max_id: number }>("SELECT COALESCE(MAX(id), 0) as max_id FROM siswa");
+        const newSiswaId = (maxRow?.max_id || 0) + 1;
+        await runDirect(`
+          INSERT INTO siswa (id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          newSiswaId,
+          cleanNama,
+          cleanNisn,
+          data.satuan_pendidikan || null,
+          data.kecamatan || null,
+          data.jenjang || null,
+          data.tingkat_kelas || null,
+          data.jenis_kelamin || null
+        ]);
+        targetSiswaId = newSiswaId;
+      }
+    }
+
+    let vervalId = data.id;
+
+    if (vervalId) {
+      await runDirect(`
+        UPDATE verval_lanjutan SET
+          siswa_id = ?,
+          nisn = ?,
+          nik_siswa = ?,
+          nama_siswa = ?,
+          sumber_instansi = ?,
+          alamat_siswa = ?,
+          alamat_sekolah = ?,
+          nama_ibu = ?,
+          nik_ibu = ?,
+          nama_ayah = ?,
+          nik_ayah = ?,
+          status_patju360 = ?,
+          metode_verval = ?,
+          desil_nasional = ?,
+          kategori_desil = ?,
+          desil_awal = ?,
+          pkh = ?,
+          bansos_sembako = ?,
+          beasiswa_bskm = ?,
+          pbi_jk = ?,
+          status_medis = ?,
+          disabilitas_dtsen = ?,
+          puskesmas_terdekat = ?,
+          jarak_km = ?,
+          dokter_pemeriksa = ?,
+          diagnosa = ?,
+          tindakan = ?,
+          status_rujukan = ?,
+          keterangan = ?
+        WHERE id = ?
+      `, [
+        targetSiswaId,
+        cleanNisn,
+        cleanNik,
+        cleanNama,
+        data.sumber_instansi || "DIKBUD",
+        data.alamat_siswa || null,
+        data.alamat_sekolah || null,
+        data.nama_ibu || null,
+        data.nik_ibu || null,
+        data.nama_ayah || null,
+        data.nik_ayah || null,
+        data.status_patju360 || "TRUE",
+        data.metode_verval || "VERVAL PATJU 360",
+        data.desil_nasional || "BELUM ADA DESIL",
+        data.kategori_desil || null,
+        data.desil_awal || null,
+        data.pkh || "TIDAK",
+        data.bansos_sembako || "TIDAK",
+        data.beasiswa_bskm || "TIDAK",
+        data.pbi_jk || "TIDAK",
+        data.status_medis || "TIDAK ADA PENYAKIT KRONIS",
+        data.disabilitas_dtsen || null,
+        data.puskesmas_terdekat || null,
+        data.jarak_km != null && !isNaN(Number(data.jarak_km)) ? Number(data.jarak_km) : null,
+        data.dokter_pemeriksa || null,
+        data.diagnosa || null,
+        data.tindakan || null,
+        data.status_rujukan || "Belum Ada Rujukan",
+        data.keterangan || null,
+        vervalId
+      ]);
+    } else {
+      const res = await runDirect(`
+        INSERT INTO verval_lanjutan (
+          siswa_id,
+          nisn,
+          nik_siswa,
+          nama_siswa,
+          sumber_instansi,
+          alamat_siswa,
+          alamat_sekolah,
+          nama_ibu,
+          nik_ibu,
+          nama_ayah,
+          nik_ayah,
+          status_patju360,
+          metode_verval,
+          desil_nasional,
+          kategori_desil,
+          desil_awal,
+          pkh,
+          bansos_sembako,
+          beasiswa_bskm,
+          pbi_jk,
+          status_medis,
+          disabilitas_dtsen,
+          puskesmas_terdekat,
+          jarak_km,
+          dokter_pemeriksa,
+          diagnosa,
+          tindakan,
+          status_rujukan,
+          keterangan
+        ) VALUES (
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?
+        )
+      `, [
+        targetSiswaId,
+        cleanNisn,
+        cleanNik,
+        cleanNama,
+        data.sumber_instansi || "DIKBUD",
+        data.alamat_siswa || null,
+        data.alamat_sekolah || null,
+        data.nama_ibu || null,
+        data.nik_ibu || null,
+        data.nama_ayah || null,
+        data.nik_ayah || null,
+        data.status_patju360 || "TRUE",
+        data.metode_verval || "VERVAL PATJU 360",
+        data.desil_nasional || "BELUM ADA DESIL",
+        data.kategori_desil || null,
+        data.desil_awal || null,
+        data.pkh || "TIDAK",
+        data.bansos_sembako || "TIDAK",
+        data.beasiswa_bskm || "TIDAK",
+        data.pbi_jk || "TIDAK",
+        data.status_medis || "TIDAK ADA PENYAKIT KRONIS",
+        data.disabilitas_dtsen || null,
+        data.puskesmas_terdekat || null,
+        data.jarak_km != null && !isNaN(Number(data.jarak_km)) ? Number(data.jarak_km) : null,
+        data.dokter_pemeriksa || null,
+        data.diagnosa || null,
+        data.tindakan || null,
+        data.status_rujukan || "Belum Ada Rujukan",
+        data.keterangan || null
+      ]);
+
+      vervalId = res.lastInsertRowid;
+      if (!vervalId) {
+        const row = await queryOneDirect<{ id: number }>("SELECT id FROM verval_lanjutan WHERE nisn = ? ORDER BY id DESC LIMIT 1", [cleanNisn]);
+        vervalId = row?.id;
+      }
+    }
+
+    // Perbarui Hambatan & Alat Rekomendasi jika disediakan
+    if (data.hambatan !== undefined) {
+      await runDirect("DELETE FROM verval_hambatan WHERE nisn = ? OR (siswa_id = ? AND ? IS NOT NULL)", [
+        cleanNisn,
+        targetSiswaId,
+        targetSiswaId
+      ]);
+      if (Array.isArray(data.hambatan)) {
+        for (const h of data.hambatan) {
+          if (!h.jenis_hambatan || !h.jenis_hambatan.trim()) continue;
+          await runDirect(`
+            INSERT INTO verval_hambatan (siswa_id, nisn, jenis_hambatan, klasifikasi, tipe_alat_rekomendasi)
+            VALUES (?, ?, ?, ?, ?)
+          `, [
+            targetSiswaId,
+            cleanNisn,
+            h.jenis_hambatan.trim().toUpperCase(),
+            (h.klasifikasi || "BERAT").toUpperCase(),
+            h.tipe_alat_rekomendasi || "-"
+          ]);
+        }
+      }
+    }
+
+    return { success: true, id: vervalId, siswa_id: targetSiswaId };
+  });
+
+const serverDeleteVervalIntervensi = createServerFn({ method: "POST" })
+  .inputValidator((d: { id: number }) => d)
+  .handler(async ({ data }: { data: { id: number } }) => {
+    const row = await queryOneDirect<any>("SELECT nisn, siswa_id FROM verval_lanjutan WHERE id = ?", [data.id]);
+    if (!row) {
+      throw new Error("Data intervensi tidak ditemukan.");
+    }
+    await runDirect("DELETE FROM verval_lanjutan WHERE id = ?", [data.id]);
+    await runDirect("DELETE FROM verval_hambatan WHERE nisn = ? OR (siswa_id = ? AND ? IS NOT NULL)", [
+      row.nisn,
+      row.siswa_id,
+      row.siswa_id
+    ]);
+    return { success: true };
+  });
+
+const serverQuickUpdateStatus = createServerFn({ method: "POST" })
+  .inputValidator((d: { id: number; field: string; value: string }) => d)
+  .handler(async ({ data }: { data: { id: number; field: string; value: string } }) => {
+    const allowed = ["beasiswa_bskm", "pbi_jk", "pkh", "bansos_sembako", "status_rujukan", "desil_nasional"];
+    if (!allowed.includes(data.field)) {
+      throw new Error("Kolom tidak diizinkan untuk pembaruan cepat.");
+    }
+    await runDirect(`UPDATE verval_lanjutan SET ${data.field} = ? WHERE id = ?`, [data.value, data.id]);
+    return { success: true };
+  });
+
+const serverSearchSiswaMaster = createServerFn({ method: "POST" })
+  .inputValidator((d: { keyword: string }) => d)
+  .handler(async ({ data }: { data: { keyword: string } }) => {
+    if (!data.keyword || data.keyword.trim().length < 2) return [];
+    const term = `%${data.keyword.trim()}%`;
+    const rows = await queryDirect<any>(`
+      SELECT id, nama_siswa, nisn, satuan_pendidikan, kecamatan, jenjang, tingkat_kelas, jenis_kelamin
+      FROM siswa
+      WHERE nama_siswa LIKE ? OR nisn LIKE ? OR satuan_pendidikan LIKE ?
+      ORDER BY nama_siswa ASC
+      LIMIT 15
+    `, [term, term, term]);
+    return rows;
   });
 
 const serverBatch = createServerFn({ method: "POST" })
@@ -276,8 +620,9 @@ export async function queryOne<T = any>(sql: string, params: any[] = []): Promis
 /**
  * Fungsi untuk menjalankan perintah non-query (INSERT, UPDATE, DELETE)
  */
-export async function run(sql: string, params: any[] = []) {
-  await serverRun({ data: { sql, params } });
+export async function run(sql: string, params: any[] = []): Promise<{ rowsAffected: number; lastInsertRowid?: number }> {
+  const result = await serverRun({ data: { sql, params } });
+  return result as { rowsAffected: number; lastInsertRowid?: number };
 }
 
 /**
@@ -369,6 +714,34 @@ export async function batchUpdateVervalMedis(records: {
   }
 
   return { updatedCount, notFoundList };
+}
+
+/**
+ * Simpan atau perbarui data intervensi siswa (PATJU 360) secara menyeluruh
+ */
+export async function saveVervalIntervensi(data: VervalItemInput) {
+  return await serverSaveVervalIntervensi({ data });
+}
+
+/**
+ * Hapus data intervensi siswa dari daftar prioritas PATJU 360
+ */
+export async function deleteVervalIntervensi(id: number) {
+  return await serverDeleteVervalIntervensi({ data: { id } });
+}
+
+/**
+ * Perbarui status tertentu secara instan (BSKM, PBI-JK, PKH, Sembako, Rujukan)
+ */
+export async function quickUpdateIntervensiStatus(id: number, field: string, value: string) {
+  return await serverQuickUpdateStatus({ data: { id, field, value } });
+}
+
+/**
+ * Cari siswa terdaftar dari master data siswa untuk auto-fill form intervensi
+ */
+export async function searchSiswaMaster(keyword: string) {
+  return await serverSearchSiswaMaster({ data: { keyword } });
 }
 
 export type UserRole = "BAPPERIDA" | "DIKES" | "DIKBUD" | "DINSOS" | "INOVASI" | "GUEST";

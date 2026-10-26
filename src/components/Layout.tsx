@@ -8,6 +8,7 @@ import { NavigationFAB } from "./NavigationFAB";
 import { ThemeToggle } from "./ThemeToggle";
 import { Intro } from "./Intro";
 import { LoginDialog } from "./LoginDialog";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function Layout() {
   const [showIntro, setShowIntro] = useState(true);
@@ -104,6 +105,7 @@ export default function Layout() {
 
       <NavigationFAB />
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+      <Toaster position="top-right" richColors />
       
       <footer className="py-8 px-6 text-center text-[11px] text-muted-foreground border-t border-border mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">

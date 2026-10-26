@@ -3,15 +3,19 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useYear } from "@/lib/YearContext";
 import { useAuth } from "@/lib/AuthContext";
-import { query, fmt, updateVervalMedis, batchUpdateVervalMedis } from "@/lib/db";
+import { query, fmt, updateVervalMedis, batchUpdateVervalMedis, quickUpdateIntervensiStatus } from "@/lib/db";
 import InfoCard from "@/components/InfoCard";
 import { exportIntervensiToExcel } from "@/lib/exportIntervensiExcel";
 import { downloadTemplateImportExcel, parseIntervensiExcel, ParsedMedisItem } from "@/lib/importIntervensiExcel";
+import { IntervensiFormModal } from "@/components/IntervensiFormModal";
+import { IntervensiDeleteModal } from "@/components/IntervensiDeleteModal";
+import { toast } from "sonner";
 import { 
   ShieldAlert, Download, Eye, EyeOff, Search, RotateCcw, 
   MapPin, HeartPulse, GraduationCap, CheckCircle2, XCircle, 
   User, School, Users, Activity, FileSpreadsheet, Stethoscope, Save, Check, Lock, Loader2,
-  Upload, FileUp, AlertCircle, CheckCircle
+  Upload, FileUp, AlertCircle, CheckCircle,
+  Plus, Pencil, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,6 +95,64 @@ function IntervensiPage() {
   const [importedItems, setImportedItems] = useState<ParsedMedisItem[]>([]);
   const [importStats, setImportStats] = useState<{ total: number; valid: number; withData: number } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+
+  // State untuk Modal CRUD Intervensi
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formEditItem, setFormEditItem] = useState<any | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<any | null>(null);
+
+  const handleOpenCreate = () => {
+    if (user && user.role === "GUEST") {
+      alert("Untuk menambahkan data intervensi, silakan masuk dengan akun OPD (Bapperida, Dikes, Dikbud, Dinsos) menggunakan tombol 'Masuk OPD' di bagian atas.");
+      return;
+    }
+    setFormEditItem(null);
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEdit = (r: any) => {
+    if (user && user.role === "GUEST") {
+      alert("Untuk memperbarui data intervensi, silakan masuk dengan akun OPD (Bapperida, Dikes, Dikbud, Dinsos) menggunakan tombol 'Masuk OPD' di bagian atas.");
+      return;
+    }
+    const hambatanList = vervalData?.hambatanMap?.get(r.nisn) || r.hambatanList || [];
+    setFormEditItem({ ...r, hambatanList });
+    setIsFormOpen(true);
+  };
+
+  const handleOpenDelete = (r: any) => {
+    if (user && user.role === "GUEST") {
+      alert("Untuk menghapus data intervensi, silakan masuk dengan akun OPD resmi menggunakan tombol 'Masuk OPD' di bagian atas.");
+      return;
+    }
+    setItemToDelete(r);
+    setIsDeleteOpen(true);
+  };
+
+  const handleQuickToggle = async (id: number, field: string, currentValue: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (user && user.role === "GUEST") {
+      toast.error("Masuk dengan akun OPD untuk mengubah status bantuan.");
+      return;
+    }
+
+    let nextValue = "YA";
+    if (field === "beasiswa_bskm") {
+      nextValue = currentValue?.startsWith("YA") ? "TIDAK" : "YA (AFIRMASI 2026)";
+    } else if (field === "pbi_jk") {
+      nextValue = currentValue === "YA" ? "TIDAK" : "YA";
+    }
+
+    try {
+      await quickUpdateIntervensiStatus(id, field, nextValue);
+      await queryClient.invalidateQueries({ queryKey: ["verval-list"] });
+      await queryClient.invalidateQueries({ queryKey: ["verval-analytics"] });
+      toast.success(`Status ${field === 'beasiswa_bskm' ? 'BSKM' : 'PBI-JK'} berhasil diperbarui.`);
+    } catch (err: any) {
+      toast.error("Gagal mengubah status: " + (err?.message || "Kesalahan"));
+    }
+  };
 
   // Form Rekam Medis & Intervensi Klinis
   const [medForm, setMedForm] = useState({
@@ -645,7 +707,16 @@ function IntervensiPage() {
               className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              onClick={handleOpenCreate}
+              className="rounded-xl flex items-center gap-1.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+              title="Daftarkan atau tambahkan data siswa intervensi prioritas baru"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Siswa Intervensi
+            </Button>
             <Button
               variant={isUnlocked ? "destructive" : "outline"}
               size="sm"
@@ -884,7 +955,7 @@ function IntervensiPage() {
                   <th className="py-3 px-3 min-w-[160px]">Tindakan</th>
                   <th className="py-3 px-3 min-w-[130px]">Status Rujukan</th>
                   <th className="py-3 px-3 min-w-[140px]">Keterangan</th>
-                  <th className="py-3 px-3 text-center w-28 sticky right-0 bg-card/95 shadow-sm">Aksi</th>
+                  <th className="py-3 px-3 text-center min-w-[190px] sticky right-0 bg-card/95 shadow-sm">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -975,16 +1046,26 @@ function IntervensiPage() {
                             }`}>
                               Sembako: {r.bansos_sembako || "TIDAK"}
                             </span>
-                            <span className={`px-1.5 py-0.5 rounded text-center ${
-                              r.beasiswa_bskm?.startsWith("YA") ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600"
-                            }`}>
-                              BSKM: {r.beasiswa_bskm?.startsWith("YA") ? "SUDAH" : "BELUM"}
-                            </span>
-                            <span className={`px-1.5 py-0.5 rounded text-center ${
-                              r.pbi_jk === "YA" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600"
-                            }`}>
-                              PBI-JK: {r.pbi_jk === "YA" ? "TERCOVER" : "BELUM"}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleQuickToggle(r.id, "beasiswa_bskm", r.beasiswa_bskm, e)}
+                              title="Klik untuk ubah cepat status BSKM (Sudah / Belum)"
+                              className={`px-1.5 py-0.5 rounded text-center cursor-pointer transition-all hover:scale-105 active:scale-95 ${
+                                r.beasiswa_bskm?.startsWith("YA") ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25" : "bg-rose-500/10 text-rose-600 hover:bg-rose-500/20"
+                              }`}
+                            >
+                              BSKM: {r.beasiswa_bskm?.startsWith("YA") ? "SUDAH" : "BELUM"} ⚡
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleQuickToggle(r.id, "pbi_jk", r.pbi_jk, e)}
+                              title="Klik untuk ubah cepat status jaminan BPJS PBI-JK"
+                              className={`px-1.5 py-0.5 rounded text-center cursor-pointer transition-all hover:scale-105 active:scale-95 ${
+                                r.pbi_jk === "YA" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25" : "bg-rose-500/10 text-rose-600 hover:bg-rose-500/20"
+                              }`}
+                            >
+                              PBI-JK: {r.pbi_jk === "YA" ? "TERCOVER" : "BELUM"} ⚡
+                            </button>
                           </div>
                         </td>
                         <td className="py-3 px-3">
@@ -1066,14 +1147,37 @@ function IntervensiPage() {
                           )}
                         </td>
                         <td className="py-3 px-3 text-center sticky right-0 bg-card/95 shadow-sm">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenDetail({ ...r, hambatanList })}
-                            className="rounded-xl text-[11px] h-8 px-2.5 font-bold hover:bg-primary hover:text-primary-foreground border-primary/40 text-primary"
-                          >
-                            Kelola Medis
-                          </Button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenDetail({ ...r, hambatanList })}
+                              className="rounded-xl text-[11px] h-8 px-2 font-bold hover:bg-primary hover:text-primary-foreground border-primary/40 text-primary"
+                              title="Lihat rincian lengkap profil & rekam medis"
+                            >
+                              <Eye className="w-3.5 h-3.5 mr-1" />
+                              Detail
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenEdit(r)}
+                              className="rounded-xl text-[11px] h-8 px-2 font-bold hover:bg-amber-600 hover:text-white border-amber-500/40 text-amber-600 dark:text-amber-400"
+                              title="Perbarui seluruh data intervensi siswa ini"
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenDelete(r)}
+                              className="rounded-xl text-[11px] h-8 w-8 p-0 font-bold hover:bg-rose-500/10 text-rose-500 hover:text-rose-700"
+                              title="Hapus data intervensi siswa ini"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1590,8 +1694,36 @@ function IntervensiPage() {
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end">
-                <Button variant="outline" onClick={() => setDetailSiswa(null)}>
+              <div className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const item = detailSiswa;
+                      setDetailSiswa(null);
+                      handleOpenEdit(item);
+                    }}
+                    className="rounded-xl text-xs font-bold border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 flex items-center gap-1.5"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit Seluruh Data Intervensi
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const item = detailSiswa;
+                      setDetailSiswa(null);
+                      handleOpenDelete(item);
+                    }}
+                    className="rounded-xl text-xs font-bold text-rose-500 hover:text-rose-700 hover:bg-rose-500/10 flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Hapus
+                  </Button>
+                </div>
+                <Button variant="outline" onClick={() => setDetailSiswa(null)} className="rounded-xl text-xs font-bold">
                   Tutup
                 </Button>
               </div>
@@ -1773,6 +1905,29 @@ function IntervensiPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Form Tambah / Edit Intervensi (CRUD) */}
+      <IntervensiFormModal
+        open={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        initialData={formEditItem}
+        onSuccess={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["verval-list"] });
+          await queryClient.invalidateQueries({ queryKey: ["verval-analytics"] });
+          await queryClient.invalidateQueries({ queryKey: ["verval-kec-list"] });
+        }}
+      />
+
+      {/* Modal Konfirmasi Hapus Intervensi (CRUD) */}
+      <IntervensiDeleteModal
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        item={itemToDelete}
+        onSuccess={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["verval-list"] });
+          await queryClient.invalidateQueries({ queryKey: ["verval-analytics"] });
+        }}
+      />
     </div>
   );
 }
